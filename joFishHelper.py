@@ -1,27 +1,31 @@
 import numpy as np
-import cv2
+#import cv2
 import Tkinter
 import tkFileDialog
 import subprocess
 import os
+import matrixUtilities_joh as mu
 
 class ExperimentMeta(object):
-    def __init__(self,aviPath,arenaDiameter=100):
-        self.aviPath = aviPath
+    def __init__(self,path,arenaDiameter=100):
         self.arenaDiameter = arenaDiameter
         self.arenaCenter = [0,0] #assign later
         self.pxPmm = 0 #assign later
         
-        #get video meta data
-        vp=getVideoProperties(self.aviPath) #video properties
-        self.ffmpeginfo = vp
-        self.videoDims = [vp['width'] , vp['height']]
-        self.numFrames=vp['nb_frames']
-        self.fps=vp['fps']
-        self.date=vp['TAG:date']
+        if path.endswith('.avi'):
+            self.aviPath = path
+            #get video meta data
+            vp=getVideoProperties(path) #video properties
+            self.ffmpeginfo = vp
+            self.videoDims = [vp['width'] , vp['height']]
+            self.numFrames=vp['nb_frames']
+            self.fps=vp['fps']
+            self.date=vp['TAG:date']
+        else:
+            self.fps=30
         
         #concatenate dependent file paths
-        head, tail = os.path.split(self.aviPath)
+        head, tail = os.path.split(path)
         head=os.path.normpath(head)
         self.trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
         self.dataPath = os.path.join(head,'analysisData.mat')
@@ -43,7 +47,7 @@ def getVideoProperties(aviPath):
     decoder_configuration['fps']=int(float(nominator) / float(denominator))
     return decoder_configuration
     
-class Trajectories(object):
+class Pair(object):
     def __init__(self, positionPx, videoproperties):
         self.positionPx=positionPx
         
@@ -52,7 +56,15 @@ class Trajectories(object):
         self.dd_position=np.diff(self.d_position,axis=0)
         self.speed=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
         self.accel=np.sqrt(self.dd_position[:,:,0]**2 + self.dd_position[:,:,1]**2)
+        self.heading=mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1])
+        self.d_heading=np.diff(self.heading[0],axis=0)
         
+        #inter animal distance IAD
+        dist=self.position[:,0,:]-self.position[:,1,:]
+        self.IAD = np.sqrt(dist[:,0]**2 + dist[:,1]**2)
+
+
+       
     #calculate dependent trajectories, speed, heading etc.    
         
 
