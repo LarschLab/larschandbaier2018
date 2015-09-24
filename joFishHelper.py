@@ -5,7 +5,7 @@ import tkFileDialog
 import subprocess
 import os
 
-class ExperimentMeta:
+class ExperimentMeta(object):
     def __init__(self,aviPath,arenaDiameter=100):
         self.aviPath = aviPath
         self.arenaDiameter = arenaDiameter
@@ -43,9 +43,15 @@ def getVideoProperties(aviPath):
     decoder_configuration['fps']=int(float(nominator) / float(denominator))
     return decoder_configuration
     
-class Trajectories:
-    def __init__(self, rawPx):
-        self.rawPx=rawPx
+class Trajectories(object):
+    def __init__(self, positionPx, videoproperties):
+        self.positionPx=positionPx
+        
+        self.position=self.positionPx / videoproperties.pxPmm
+        self.d_position=np.diff(self.position,axis=0)
+        self.dd_position=np.diff(self.d_position,axis=0)
+        self.speed=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
+        self.accel=np.sqrt(self.dd_position[:,:,0]**2 + self.dd_position[:,:,1]**2)
         
     #calculate dependent trajectories, speed, heading etc.    
         

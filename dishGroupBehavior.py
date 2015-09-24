@@ -18,6 +18,7 @@ maxPixel=np.max(np.max(np.nanmax(trajectories,0)))
 minPixel=np.min(np.min(np.nanmin(trajectories,0)))
 arenaDiameterPx=maxPixel-minPixel
 expInfo.pxPmm=arenaDiameterPx/expInfo.arenaDiameter
+tra=joFishHelper.Trajectories(trajectories,expInfo)
 plt.plot(trajectories[:,0,0],trajectories[:,0,1],'b.',markersize=1)
 plt.show()
-vp=joFishHelper.getVideoProperties(avi_Path)
+#vp=joFishHelper.getVideoProperties(avi_Path)
