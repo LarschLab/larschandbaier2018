@@ -6,7 +6,7 @@ import matrixUtilities_joh as mu
 import random
 import scipy.io
 import matplotlib.pyplot as plt
-
+import scipy.stats as sta
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
@@ -67,7 +67,7 @@ class Pair(object):
         self.d_position=np.diff(self.position,axis=0)
         self.dd_position=np.diff(self.d_position,axis=0)
         self.speed=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
-        self.accel=np.sqrt(self.dd_position[:,:,0]**2 + self.dd_position[:,:,1]**2)
+        self.accel=np.diff(self.speed,axis=0)
         self.heading=np.transpose(mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1]),[1,2,0]) #heading[0] = heading, heading[1] = speed
         self.d_heading=np.diff(self.heading[0],axis=0)
         
@@ -77,12 +77,16 @@ class Pair(object):
         self.IAD_m=np.nanmean(self.IAD)
         
         #relative distance between animals
-        self.neighborMat,self.relPosPolRotCart,self.relPosPolRot,self.relPos,self.relPosPol = getRelativeNeighborPositions(self.position,self.heading)
-
-def getRelativeNeighborPositions(trajectory,heading):
-    tra=trajectory[1:,:,:].copy() #using *1 to obtain a new copy rather than reference
-    relPos2=tra[:,1,:]-tra[:,0,:]  
-    relPos1=tra[:,0,:]-tra[:,1,:]
+        self.neighborMat,self.relPosPolRotCart = getRelativeNeighborPositions(self.position,self.heading)
+        
+        #force map between animals
+        self.ForceMat = getNeighborForce(self.relPosPolRotCart,self.accel)
+        
+def getRelativeNeighborPositions(position,heading):
+    pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
+    
+    relPos2=pos[:,1,:]-pos[:,0,:]  
+    relPos1=pos[:,0,:]-pos[:,1,:]
     relPos=np.transpose([relPos1,relPos2],[1,0,2])
     
     relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
@@ -92,10 +96,22 @@ def getRelativeNeighborPositions(trajectory,heading):
     relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
     relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
     
-    neighborMat=np.histogramdd(relPosPolRotCart[:,0,:],bins=[np.arange(-31,32),np.arange(-31,32)])
-    #AccPol=mu.cart2pol(tra.d_position)
+    mapBins=np.arange(-31,32)
+    neighborMat=np.zeros([62,62,2])
+    #animal 1
+    neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
+    #animal 2
+    neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
+    return neighborMat,relPosPolRotCart
     
-    return neighborMat,relPosPolRotCart,relPosPolRot,relPos,relPosPol
+def getNeighborForce(position,acceleration):
+    mapBins=np.arange(-31,32)
+    force_t=np.zeros([62,62,2])
+    #animal 1
+    force_t[:,:,0]=sta.binned_statistic_2d(position[1:,0,0],position[1:,0,1],acceleration[:,0],bins=[mapBins,mapBins])[0]
+    #animal 2
+    force_t[:,:,1]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
+    return force_t
 
 
 
@@ -169,12 +185,32 @@ class experiment(object):
         plt.xlim([0.5, 3]) 
         plt.ylabel('[mm]')
         plt.xticks([1.25,2.25],['raw','shift'])
-        plt.tight_layout()
+ 
         plt.title('mean IAD')
-        plt.show()
+  
         
         plt.subplot(337)
         plt.cla()
-        plt.imshow(self.Pair.neighborMat[0],interpolation='none', extent=[-31,31,-31,31])
-        #plt.ylim([-150, 150]) 
-        #plt.xlim([-150, 150]) 
+        meanPosMat=np.nanmean(self.Pair.neighborMat,axis=2)
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31])
+        plt.title('mean neighbor position')
+        plt.xlabel('x [mm]')
+        plt.ylabel('y [mm]')
+        
+        plt.subplot(338)
+        plt.cla()
+        meanForceMat=np.nanmean(self.Pair.ForceMat,axis=2)
+        plt.imshow(meanForceMat,interpolation='gaussian', extent=[-31,31,-31,31],clim=(-.3, .3),filternorm=0.01)
+        plt.title('accel=f(pos_n)')
+        plt.xlabel('x [mm]')
+        plt.ylabel('y [mm]')
+        
+        plt.subplot(339)
+        plt.cla()
+        plt.plot(np.nanmean(meanForceMat[:,28:35],axis=1),'b.',markersize=2)
+        plt.title('y profile')
+        plt.xlabel('x [mm]')
+        plt.ylabel('y [mm]')
+        
+        plt.tight_layout()
+        plt.show()
