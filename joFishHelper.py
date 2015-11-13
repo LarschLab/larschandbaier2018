@@ -68,13 +68,35 @@ class Pair(object):
         self.dd_position=np.diff(self.d_position,axis=0)
         self.speed=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
         self.accel=np.sqrt(self.dd_position[:,:,0]**2 + self.dd_position[:,:,1]**2)
-        self.heading=mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1])
+        self.heading=np.transpose(mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1]),[1,2,0]) #heading[0] = heading, heading[1] = speed
         self.d_heading=np.diff(self.heading[0],axis=0)
         
-        #inter animal distance IAD
+        #absolute inter animal distance IAD
         dist=self.position[:,0,:]-self.position[:,1,:]
         self.IAD = np.sqrt(dist[:,0]**2 + dist[:,1]**2)
         self.IAD_m=np.nanmean(self.IAD)
+        
+        #relative distance between animals
+        self.neighborMat,self.relPosPolRotCart,self.relPosPolRot,self.relPos,self.relPosPol = getRelativeNeighborPositions(self.position,self.heading)
+
+def getRelativeNeighborPositions(trajectory,heading):
+    tra=trajectory[1:,:,:].copy() #using *1 to obtain a new copy rather than reference
+    relPos2=tra[:,1,:]-tra[:,0,:]  
+    relPos1=tra[:,0,:]-tra[:,1,:]
+    relPos=np.transpose([relPos1,relPos2],[1,0,2])
+    
+    relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
+    relPosPolRot=relPosPol.copy()
+    relPosPolRot[:,0,0]=relPosPol[:,0,0]-(heading[:,0,0])
+    relPosPolRot[:,1,0]=relPosPol[:,1,0]-(heading[:,1,0])
+    relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
+    relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
+    
+    neighborMat=np.histogramdd(relPosPolRotCart[:,0,:],bins=[np.arange(-31,32),np.arange(-31,32)])
+    #AccPol=mu.cart2pol(tra.d_position)
+    
+    return neighborMat,relPosPolRotCart,relPosPolRot,relPos,relPosPol
+
 
 
 class shiftedPair(object):
@@ -99,12 +121,17 @@ class experiment(object):
     def __init__(self,path):
         self.expInfo=ExperimentMeta(path)
         mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
-        self.Pair=Pair(mat['trajectories'],self.expInfo)
+        rawTra=mat['trajectories']
+        #take out nan in the beginnin
+        nanInd=np.max(np.where(np.isnan(rawTra)))+1
+        rawTra=rawTra[nanInd:,:,:]
+        self.Pair=Pair(rawTra,self.expInfo)
         
         #generate shifted control 'mock' pairs
         self.sPair=shiftedPair(self.Pair,self.expInfo)        
         
         plt.subplot(331)
+        plt.cla()
         plt.plot(self.Pair.position[:,0,0],self.Pair.position[:,0,1],'b.',markersize=1,alpha=0.1)
         plt.plot(self.Pair.position[:,1,0],self.Pair.position[:,1,1],'r.',markersize=1,alpha=0.1)
         plt.xlabel('x [mm]')
@@ -114,6 +141,7 @@ class experiment(object):
         #plot IAD time series
         x=np.arange(float(np.shape(self.Pair.IAD)[0]))/(self.expInfo.fps*60)
         plt.subplot(312)
+        plt.cla()
         plt.plot(x,self.Pair.IAD,'b.',markersize=0.2)
         plt.xlim([0, 90]) 
         plt.xlabel('time [minutes]')
@@ -121,6 +149,7 @@ class experiment(object):
         plt.title('Inter Animal Distance over time')
         
         plt.subplot(332)
+        plt.cla()
         #get rid of nan
         IAD=self.Pair.IAD
         IAD=IAD[~np.isnan(IAD)]
@@ -130,6 +159,7 @@ class experiment(object):
         plt.title('IAD')
         
         plt.subplot(333)
+        plt.cla()
         x=[1,2]
         y=[self.Pair.IAD_m,self.sPair.spIAD_m]
         yerr=[0,self.sPair.spIAD_std]
@@ -143,4 +173,8 @@ class experiment(object):
         plt.title('mean IAD')
         plt.show()
         
-        
+        plt.subplot(337)
+        plt.cla()
+        plt.imshow(self.Pair.neighborMat[0],interpolation='none', extent=[-31,31,-31,31])
+        #plt.ylim([-150, 150]) 
+        #plt.xlim([-150, 150]) 

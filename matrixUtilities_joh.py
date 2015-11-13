@@ -9,9 +9,9 @@ import numpy as np
 def cart2pol(x, y):
     theta = np.arctan2(y, x)
     rho = np.hypot(x, y)
-    return theta, rho
+    return np.array([theta, rho])
     
 def pol2cart(theta, rho):
     x = rho * np.cos(theta)
     y = rho * np.sin(theta)
-    return x, y
+    return np.array([x, y])
