@@ -17,7 +17,7 @@ class ExperimentMeta(object):
         self.pxPmm = 0 #assign later from class 'Pair'
         
         #If a video file name is passed, collect video parameters
-        if path.endswith('.avi'):
+        if path.endswith('.avi') or path.endswith('.mp4'):
             self.aviPath = path
             #get video meta data
             vp=getVideoProperties(path) #video properties
@@ -25,9 +25,10 @@ class ExperimentMeta(object):
             self.videoDims = [vp['width'] , vp['height']]
             self.numFrames=vp['nb_frames']
             self.fps=vp['fps']
-            self.date=vp['TAG:date']
+            #self.date=vp['TAG:date']
         else:
             self.fps=30
+            
         
         #concatenate dependent file paths (trajectories, pre-analysis)
         head, tail = os.path.split(path)
@@ -180,12 +181,18 @@ class experiment(object):
         self.Pair=Pair(rawTra,self.expInfo)
         
         #generate shifted control 'mock' pairs
-        self.sPair=shiftedPair(self.Pair,self.expInfo)        
+        self.sPair=shiftedPair(self.Pair,self.expInfo)
+        self.ShoalIndex=(self.sPair.spIAD_m-self.Pair.IAD_m)/self.sPair.spIAD_m
         
+        #Plot results
+    
+    def plotOverview(self):
         outer_grid = gridspec.GridSpec(4, 3)        
         plt.figure(figsize=(8, 8))   
+        #plt.text(0,0.95,path)
+        plt.figtext(0,.01,self.expInfo.aviPath)
         
-        plt.subplot(4,3,1)
+        plt.subplot(4,3,1,rasterized=True)
         plt.cla()
         plt.plot(self.Pair.position[:,0,0],self.Pair.position[:,0,1],'b.',markersize=1,alpha=0.1)
         plt.plot(self.Pair.position[:,1,0],self.Pair.position[:,1,1],'r.',markersize=1,alpha=0.1)
@@ -195,7 +202,7 @@ class experiment(object):
         
         #plot IAD time series
         x=np.arange(float(np.shape(self.Pair.IAD)[0]))/(self.expInfo.fps*60)
-        plt.subplot(4,1,2)
+        plt.subplot(4,1,2,rasterized=True)
         plt.cla()
         plt.plot(x,self.Pair.IAD,'b.',markersize=0.2)
         plt.xlim([0, 90]) 
@@ -240,7 +247,5 @@ class experiment(object):
         meanForceMat=np.nanmean(self.Pair.ForceMat,axis=2)
         johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[7],31,0.3)
    
-
-        
         plt.tight_layout()
         plt.show()
