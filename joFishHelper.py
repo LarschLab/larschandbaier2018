@@ -1,12 +1,13 @@
 import numpy as np
-#import cv2
 import subprocess
 import os
 import matrixUtilities_joh as mu
 import random
 import scipy.io
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import scipy.stats as sta
+import plotFunctions_joh as johPlt
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
@@ -82,6 +83,8 @@ class Pair(object):
         #force map between animals
         self.ForceMat = getNeighborForce(self.relPosPolRotCart,self.accel)
         
+        self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
+        
 def getRelativeNeighborPositions(position,heading):
     pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
     
@@ -113,7 +116,31 @@ def getNeighborForce(position,acceleration):
     force_t[:,:,1]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
     return force_t
 
+def getShoalDwellTimes(IAD):
+    IADsm=mu.runningMean(IAD,30)
+    lowThreshold=np.nanmax(IADsm)/1.5
+    
+    lowIAD=(np.less(IAD,lowThreshold)).astype(int)
+    hiIAD=(np.greater(IAD,lowThreshold)).astype(int)
+    
+    #transitions from low to high inter animal distance and vice versa
+    LowToHigh=np.where(np.equal((hiIAD[:-1]-hiIAD[1:]),-1))[0]
+    HighToLow=np.where(np.equal((lowIAD[:-1]-lowIAD[1:]),-1))[0]
+    
+    #number of transitions to use below
+    maxL=np.min([np.shape(HighToLow)[0],np.shape(LowToHigh)[0]])-2
+    
+    #How long are High and low dwell times?
+    #calculate from transition times. Order depends on starting state of data
+    
+    if HighToLow[0]>LowToHigh[0]: #meaning starting low
+        HiDwell=HighToLow[0:maxL]-LowToHigh[0:maxL]
+        LowDwell=LowToHigh[1:maxL]-HighToLow[0:maxL-1]
+    else: #meaning starting high
+        HiDwell=HighToLow[1:maxL]-LowToHigh[0:maxL-1]
+        LowDwell=LowToHigh[0:maxL]-HighToLow[0:maxL]
 
+    return HiDwell,LowDwell,HighToLow,LowToHigh
 
 class shiftedPair(object):
     #Class to calculate null hypothesis time series using shifted pairs of animals
@@ -132,6 +159,10 @@ class shiftedPair(object):
         self.spIAD_m = np.nanmean([x.IAD_m for x in self.sPair])
         self.spIAD_std = np.nanstd([x.IAD_m for x in self.sPair])
        
+       
+
+       
+       
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
     def __init__(self,path):
@@ -139,14 +170,22 @@ class experiment(object):
         mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
         rawTra=mat['trajectories']
         #take out nan in the beginnin
-        nanInd=np.max(np.where(np.isnan(rawTra)))+1
-        rawTra=rawTra[nanInd:,:,:]
+        nanInd=np.where(np.isnan(rawTra))
+        if np.equal(np.shape(nanInd)[1],0) or np.greater(np.max(nanInd),1000):
+            LastNan=0
+        else:
+            LastNan=np.max(nanInd)+1
+        
+        rawTra=rawTra[LastNan:,:,:]
         self.Pair=Pair(rawTra,self.expInfo)
         
         #generate shifted control 'mock' pairs
         self.sPair=shiftedPair(self.Pair,self.expInfo)        
         
-        plt.subplot(331)
+        outer_grid = gridspec.GridSpec(4, 3)        
+        plt.figure(figsize=(8, 8))   
+        
+        plt.subplot(4,3,1)
         plt.cla()
         plt.plot(self.Pair.position[:,0,0],self.Pair.position[:,0,1],'b.',markersize=1,alpha=0.1)
         plt.plot(self.Pair.position[:,1,0],self.Pair.position[:,1,1],'r.',markersize=1,alpha=0.1)
@@ -156,7 +195,7 @@ class experiment(object):
         
         #plot IAD time series
         x=np.arange(float(np.shape(self.Pair.IAD)[0]))/(self.expInfo.fps*60)
-        plt.subplot(312)
+        plt.subplot(4,1,2)
         plt.cla()
         plt.plot(x,self.Pair.IAD,'b.',markersize=0.2)
         plt.xlim([0, 90]) 
@@ -164,7 +203,7 @@ class experiment(object):
         plt.ylabel('IAD [mm]')
         plt.title('Inter Animal Distance over time')
         
-        plt.subplot(332)
+        plt.subplot(4,3,2)
         plt.cla()
         #get rid of nan
         IAD=self.Pair.IAD
@@ -174,7 +213,7 @@ class experiment(object):
         plt.ylabel('p')
         plt.title('IAD')
         
-        plt.subplot(333)
+        plt.subplot(4,3,3)
         plt.cla()
         x=[1,2]
         y=[self.Pair.IAD_m,self.sPair.spIAD_m]
@@ -185,32 +224,23 @@ class experiment(object):
         plt.xlim([0.5, 3]) 
         plt.ylabel('[mm]')
         plt.xticks([1.25,2.25],['raw','shift'])
- 
         plt.title('mean IAD')
-  
         
-        plt.subplot(337)
+        plt.subplot(4,3,7)
         plt.cla()
         meanPosMat=np.nanmean(self.Pair.neighborMat,axis=2)
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31])
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200])
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         
-        plt.subplot(338)
-        plt.cla()
-        meanForceMat=np.nanmean(self.Pair.ForceMat,axis=2)
-        plt.imshow(meanForceMat,interpolation='gaussian', extent=[-31,31,-31,31],clim=(-.3, .3),filternorm=0.01)
+
+        plt.subplot(4,3,8)
         plt.title('accel=f(pos_n)')
-        plt.xlabel('x [mm]')
-        plt.ylabel('y [mm]')
-        
-        plt.subplot(339)
-        plt.cla()
-        plt.plot(np.nanmean(meanForceMat[:,28:35],axis=1),'b.',markersize=2)
-        plt.title('y profile')
-        plt.xlabel('x [mm]')
-        plt.ylabel('y [mm]')
+        meanForceMat=np.nanmean(self.Pair.ForceMat,axis=2)
+        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[7],31,0.3)
+   
+
         
         plt.tight_layout()
         plt.show()

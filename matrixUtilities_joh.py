@@ -15,3 +15,6 @@ def pol2cart(theta, rho):
     x = rho * np.cos(theta)
     y = rho * np.sin(theta)
     return np.array([x, y])
+    
+def runningMean(x, N):
+    return np.convolve(x, np.ones((N,))/N,mode='valid')[(N-1):]
