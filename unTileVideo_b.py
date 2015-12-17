@@ -5,8 +5,11 @@ import tkFileDialog
 import wx
 import os
 import joFishHelper
+import time
+import pickle
 
-avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+
+avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2FishSeries_2/20151118_gr_vs_het/1'))
 #avi_path = 'C:/Users/jlarsch/Desktop/testVideo/x264Test.avi'
 #avi_path = 'D:/data/b/2FishSeries_2/20151125_isolatedVsGroup/expStream2015-11-25T16_45_05_isolatedVsGroup.avi'
 
@@ -15,10 +18,11 @@ class UnTileArenaVideo(object):
     def __init__(self,avi_path):
         
         self.avi_path=avi_path
+        head, tail = os.path.split(self.avi_path)
         vp=joFishHelper.getVideoProperties(avi_path)
         self.ffmpeginfo = vp
         self.videoDims = [vp['width'] , vp['height']]
-        self.numFrames=vp['nb_frames']
+        self.numFrames=int(vp['nb_frames'])
         self.fps=vp['fps']
         # load one frame to select arenas, convert to grayscale
         capture = cv2.VideoCapture(avi_path)
@@ -39,22 +43,26 @@ class UnTileArenaVideo(object):
         self.ax = self.fig.add_subplot(111)
         xaxis = self.frame.shape[1]
         yaxis = self.frame.shape[0]
-        self.im = self.ax.imshow(self.frame[::-1,:], cmap='jet', extent=(0,xaxis,0,yaxis), picker=5)
-        self.fig.canvas.mpl_connect('button_press_event', self.onpick1)
-        self.fig.canvas.draw()
-
-        self.ClickCount=0
-        # Initialize wx App
-        app = wx.App()
-        app.MainLoop()
-
-        # Call Dialog
-        self.numPicks = np.int(ask(message = 'How Many Arenas?'))
-        self.PicksDone=0
-        self.x = np.zeros([self.numPicks,4])
-        self.y = np.zeros([self.numPicks,4])
-        self.roiAll=[] #circular roi for each dish arena
-        self.roiSq=[] #rectangular roi around each dish
+        
+        if ~np.equal(~os.path.isfile(head+'/roi.p'),-2):
+            self.im = self.ax.imshow(self.frame[::-1,:], cmap='jet', extent=(0,xaxis,0,yaxis), picker=5)
+            self.fig.canvas.mpl_connect('button_press_event', self.onpick1)
+            self.fig.canvas.draw()
+    
+            self.ClickCount=0
+            # Initialize wx App
+            app = wx.App()
+            app.MainLoop()
+    
+            # Call Dialog
+            self.numPicks = np.int(ask(message = 'How Many Arenas?'))
+            self.PicksDone=0
+            self.x = np.zeros([self.numPicks,4])
+            self.y = np.zeros([self.numPicks,4])
+            self.roiAll=[] #circular roi for each dish arena
+            self.roiSq=[] #rectangular roi around each dish
+        else:
+            self.roiSq = pickle.load( open(head+"/roi.p", "rb" ) )
 
     def onpick1(self,event):
         if np.less(self.PicksDone,self.numPicks):
@@ -87,11 +95,14 @@ class UnTileArenaVideo(object):
             print 'all arenas defined'
             plt.close()
             self.roiSq=np.array(list(self.roiSq)).astype('int')
+            head, tail = os.path.split(self.avi_path)
+            pickle.dump( self.roiSq, open( head+"/roi.p", "wb" ) )
             
     def videoSplit(self):
         numAr=np.shape(self.roiSq)[0]
         head, tail = os.path.split(self.avi_path)
         VidOutList=[]
+        #FFMPEG_PATH = 'ffmpeg.exe'
         
         for i in range(numAr):
             #create subdirectories for split output
@@ -110,25 +121,36 @@ class UnTileArenaVideo(object):
         
         for i in range(10,self.numFrames-2,np.round(self.numFrames/9)): #use 9 images to calculate median
             cap.set(cv2.CAP_PROP_POS_FRAMES,i)
+         #   print i
             image=cap.read()
-            gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
-            
+            gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
             allMed=np.dstack((allMed,gray))
             
         vidMed=np.median(allMed,axis=2)
         print 'background collected, beginning UnTiling...'
         height,width,layers=img1[1].shape     
-        fr=0
+        #fr=0
         cap.set(cv2.CAP_PROP_POS_FRAMES,6)
-        cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+        #cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
         
-        while(np.less(fr,self.numFrames-2)):
-            image=cap.read()
-            gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
+        #while(np.less(fr,self.numFrames-2)):
+        t1=time.time()
+        fr=0
+        while True:
+            ret, image = cap.read()
+            fr += 1
+            if np.greater(fr,1000) or not ret:
+                break
+        
+        #while(np.less(fr,50)):
+            ret,image=cap.read()
+            #print fr
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
             bgDiv=gray/vidMed
-            cv2.imshow('Image',bgDiv)
-            k = cv2.waitKey(1) & 0xff
+            #cv2.imshow('Image',bgDiv)
+
+            #k = cv2.waitKey(1) & 0xff
             
             for i in range(numAr):
                 roi=(np.array([self.roiSq[i][2],
@@ -136,17 +158,19 @@ class UnTileArenaVideo(object):
                 self.roiSq[i][3],
                 self.roiSq[i][3]+self.roiSq[i][1]])).astype('int')
                 
-                try:
-                    VidOutList[i].write(bgDiv[roi[0]:roi[1],roi[2]:roi[3]])
-                except:
-                    print 'error'
-                    for i in range(numAr):
-                        VidOutList[i].release()             
-                    break
-            fr += 1
-            if k == 27:
-                break
-         
+                #try:
+                VidOutList[i].write(bgDiv[roi[0]:roi[1],roi[2]:roi[3]])
+                #except:
+                #    print 'error'
+                #    for i in range(numAr):
+                #        VidOutList[i].release()             
+                #    break
+            #fr += 1
+            #if k == 27:
+            #    break
+        
+        t2=time.time()
+        print 'this took this much time:', t2-t1
         cap.release()
         cv2.destroyAllWindows()
         
