@@ -7,9 +7,10 @@ import os
 import joFishHelper
 import time
 import pickle
+#import ffmpegSplit4_module_bgDiv
 
 
-avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2FishSeries_2/20151118_gr_vs_het/1'))
+#avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'))
 #avi_path = 'C:/Users/jlarsch/Desktop/testVideo/x264Test.avi'
 #avi_path = 'D:/data/b/2FishSeries_2/20151125_isolatedVsGroup/expStream2015-11-25T16_45_05_isolatedVsGroup.avi'
 
@@ -177,4 +178,4 @@ class UnTileArenaVideo(object):
         for i in range(numAr):
             VidOutList[i].release()   
         
-Scl=UnTileArenaVideo(avi_path)
+#Scl=UnTileArenaVideo(avi_path)

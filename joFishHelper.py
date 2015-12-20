@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import scipy.stats as sta
 import plotFunctions_joh as johPlt
+import cv2
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
@@ -53,6 +54,32 @@ def getVideoProperties(aviPath):
     decoder_configuration['fps']=int(float(nominator) / float(denominator))
     return decoder_configuration
     
+
+def getMedVideo(aviPath,FramesToAvg,saveFile):
+    cap = cv2.VideoCapture(aviPath)
+    head, tail = os.path.split(aviPath)
+    vp=getVideoProperties(aviPath)
+    videoDims = tuple([int(vp['width']) , int(vp['height'])])
+    print videoDims
+    numFrames=int(vp['nb_frames'])
+    img1=cap.read()
+    gray = cv2.cvtColor(img1[1], cv2.COLOR_BGR2GRAY)
+    allMed=gray.copy()
+    for i in range(10,numFrames-2,np.round(numFrames/FramesToAvg)): #use FramesToAvg images to calculate median
+        cap.set(cv2.CAP_PROP_POS_FRAMES,i)
+        image=cap.read()
+        gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
+        allMed=np.dstack((allMed,gray))
+        
+    vidMed=np.median(allMed,axis=2)
+
+    if saveFile:
+        ImOutFile=(head+'/bgMed.tif')
+        cv2.imwrite(ImOutFile,vidMed)
+        return 1
+    else:
+        return vidMed
+
 
 class Pair(object):
     #Class for trajectories of one pair of animals.
