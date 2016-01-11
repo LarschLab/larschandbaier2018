@@ -16,12 +16,11 @@ avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'))
 print avi_path
 Scl=unTileVideo_b.UnTileArenaVideo(avi_path)
 
-
 def videoSplit(aviP,tileList):
     
     # path to ffmpeg bin
-    #FFMPEG_PATH = 'c:/ffmpeg/bin/ffmpeg.exe'
-    FFMPEG_PATH = 'ffmpeg.exe'
+    FFMPEG_PATH = 'c:/ffmpeg/bin/ffmpeg.exe'
+    #FFMPEG_PATH = 'ffmpeg.exe'
     
     head, tail = os.path.split(aviP)
     

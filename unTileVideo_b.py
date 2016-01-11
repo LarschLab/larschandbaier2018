@@ -29,6 +29,12 @@ class UnTileArenaVideo(object):
         capture = cv2.VideoCapture(avi_path)
         capture.set(cv2.CAP_PROP_POS_FRAMES,6)
         image = capture.read()
+        image = capture.read()
+        image = capture.read()
+        image = capture.read()
+        image = capture.read()
+        capture.set(cv2.CAP_PROP_POS_FRAMES,60)
+        image = capture.read()
         gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
         
         #wx dialog box
