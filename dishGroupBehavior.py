@@ -9,11 +9,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 
 #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish.csv',sep=',')
-df=pd.read_csv('d:/data/b/TL_isolatedVsGroup.csv',sep=',')
+df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish_20160107.csv',sep=',')
 
 experiment=[];
 
-with PdfPages('d:/data/b/TL_isolatedVsGroup.pdf') as pdf:
+with PdfPages('d:/data/b/GR2016all.pdf') as pdf:
 
     for index, row in df.iterrows():
         print 'processing: ', row['aviPath']
@@ -29,3 +29,4 @@ with PdfPages('d:/data/b/TL_isolatedVsGroup.pdf') as pdf:
     df['ShoalIndex']=pd.DataFrame([f.ShoalIndex for f in experiment])
     bp=df.boxplot(column=['ShoalIndex'],by=['condition'])
     plt.ylim([0,1])
+    pdf.savefig()

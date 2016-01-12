@@ -12,7 +12,7 @@ import joFishHelper
 import unTileVideo_b
 import tkFileDialog
 
-avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'))
+avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test'))
 print avi_path
 Scl=unTileVideo_b.UnTileArenaVideo(avi_path)
 
@@ -48,8 +48,8 @@ def videoSplit(aviP,tileList):
         fcNew=('[int{4}]crop={0:.0f}:{1:.0f}:{2:.0f}:{3:.0f}:[out{4}];').format(*np.append(tileList[i],i+1)) #e.g. [0:v]crop=1024:1024:0:0[out1];
         fc=fc+''.join(str(w) for w in fcNew)
         mcn1='[out'+str(i+1)+']'
-        mcn2=directory+'split_'+str(i+1)+'_'+tail+'.mp4'
-        mcNew=['-map',mcn1,mcn2]
+        mcn2=directory+'split_'+str(i+1)+'_'+tail+''
+        mcNew=['-map',mcn1,'-c:v','libxvid','-q:v','5','-g','10',mcn2]
         mc.extend(mcNew)
         spcNew=('[int{0}]').format(i+1)
         spc=spc+spcNew
@@ -66,11 +66,18 @@ def videoSplit(aviP,tileList):
     cmd=[FFMPEG_PATH,
     '-i', aviP,
     '-i', bgPath,
-    '-maxrate', '5M',
-    '-minrate', '5M',
+    '-y',
+    #'-c:v', 'libx264',
+    #'-maxrate', '5M',
+    #'-minrate', '5M',
+    #'-threads', '0',
+    #'-c:v', 'libxvid',
+    #'-q:v', '5',
+    #'-g', '10',
+    #'-keyint_min','10',
+    '-r','30',
     '-filter_complex', fc[:-1]]
 
-    
     cmd.extend(mc[1:])    
     print cmd
     print 'starting ffmpeg for video processing...'

@@ -95,7 +95,9 @@ class Pair(object):
         self.position=(self.positionPx-expInfo.arenaCenterPx) / expInfo.pxPmm
         self.d_position=np.diff(self.position,axis=0)
         self.dd_position=np.diff(self.d_position,axis=0)
-        self.speed=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
+        self.travel=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
+        self.speed=self.travel/expInfo.fps
+        self.totalTravel=np.sum(np.abs(self.travel))
         self.accel=np.diff(self.speed,axis=0)
         self.heading=np.transpose(mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1]),[1,2,0]) #heading[0] = heading, heading[1] = speed
         self.d_heading=np.diff(self.heading[0],axis=0)
@@ -273,6 +275,9 @@ class experiment(object):
         plt.title('accel=f(pos_n)')
         meanForceMat=np.nanmean(self.Pair.ForceMat,axis=2)
         johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[7],31,0.3)
+        
+        plt.subplot(4,3,9)
+        plt.title('accel=f(pos_n)')
    
         plt.tight_layout()
         plt.show()
