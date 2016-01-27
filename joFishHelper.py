@@ -9,6 +9,7 @@ import matplotlib.gridspec as gridspec
 import scipy.stats as sta
 import plotFunctions_joh as johPlt
 import cv2
+from matplotlib.backends.backend_pdf import PdfPages
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
@@ -63,11 +64,15 @@ def getMedVideo(aviPath,FramesToAvg,saveFile):
     print videoDims
     numFrames=int(vp['nb_frames'])
     img1=cap.read()
+    img1=cap.read()
+    img1=cap.read()
+    img1=cap.read()
     gray = cv2.cvtColor(img1[1], cv2.COLOR_BGR2GRAY)
     allMed=gray.copy()
     for i in range(10,numFrames-2,np.round(numFrames/FramesToAvg)): #use FramesToAvg images to calculate median
         cap.set(cv2.CAP_PROP_POS_FRAMES,i)
         image=cap.read()
+        print i
         gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
         allMed=np.dstack((allMed,gray))
         
@@ -97,7 +102,7 @@ class Pair(object):
         self.dd_position=np.diff(self.d_position,axis=0)
         self.travel=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
         self.speed=self.travel/expInfo.fps
-        self.totalTravel=np.sum(np.abs(self.travel))
+        self.totalTravel=np.sum(np.abs(self.travel),axis=0)
         self.accel=np.diff(self.speed,axis=0)
         self.heading=np.transpose(mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1]),[1,2,0]) #heading[0] = heading, heading[1] = speed
         self.d_heading=np.diff(self.heading[0],axis=0)
@@ -118,8 +123,9 @@ class Pair(object):
 def getRelativeNeighborPositions(position,heading):
     pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
     
+    relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2
     relPos2=pos[:,1,:]-pos[:,0,:]  
-    relPos1=pos[:,0,:]-pos[:,1,:]
+    
     relPos=np.transpose([relPos1,relPos2],[1,0,2])
     
     relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
@@ -131,13 +137,14 @@ def getRelativeNeighborPositions(position,heading):
     
     mapBins=np.arange(-31,32)
     neighborMat=np.zeros([62,62,2])
-    #animal 1
-    neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
-    #animal 2
-    neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
+    #creates the neighbormat for animal 2 (where animal1 was)
+    neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
+    #creates the neighbormat for animal 1 (where animal2 was)
+    neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
     return neighborMat,relPosPolRotCart
     
 def getNeighborForce(position,acceleration):
+    #position here should be transformed (rotated, relative). [:,0,:] is the position of 
     mapBins=np.arange(-31,32)
     force_t=np.zeros([62,62,2])
     #animal 1
@@ -212,7 +219,7 @@ class experiment(object):
         #generate shifted control 'mock' pairs
         self.sPair=shiftedPair(self.Pair,self.expInfo)
         self.ShoalIndex=(self.sPair.spIAD_m-self.Pair.IAD_m)/self.sPair.spIAD_m
-        
+        self.totalPairTravel=sum(self.Pair.totalTravel)
         #Plot results
     
     def plotOverview(self):
@@ -233,7 +240,7 @@ class experiment(object):
         x=np.arange(float(np.shape(self.Pair.IAD)[0]))/(self.expInfo.fps*60)
         plt.subplot(4,1,2,rasterized=True)
         plt.cla()
-        plt.plot(x,self.Pair.IAD,'b.',markersize=0.2)
+        plt.plot(x,self.Pair.IAD,'b.',markersize=1)
         plt.xlim([0, 90]) 
         plt.xlabel('time [minutes]')
         plt.ylabel('IAD [mm]')
@@ -265,7 +272,23 @@ class experiment(object):
         plt.subplot(4,3,7)
         plt.cla()
         meanPosMat=np.nanmean(self.Pair.neighborMat,axis=2)
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200])
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100])
+        plt.title('mean neighbor position')
+        plt.xlabel('x [mm]')
+        plt.ylabel('y [mm]')
+        
+        plt.subplot(4,3,10)
+        plt.cla()
+        meanPosMat=self.Pair.neighborMat[:,:,0]
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100])
+        plt.title('mean neighbor position')
+        plt.xlabel('x [mm]')
+        plt.ylabel('y [mm]')
+        
+        plt.subplot(4,3,11)
+        plt.cla()
+        meanPosMat=self.Pair.neighborMat[:,:,1]
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100])
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
@@ -274,10 +297,16 @@ class experiment(object):
         plt.subplot(4,3,8)
         plt.title('accel=f(pos_n)')
         meanForceMat=np.nanmean(self.Pair.ForceMat,axis=2)
-        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[7],31,0.3)
+        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[7],31,0.01)
         
         plt.subplot(4,3,9)
-        plt.title('accel=f(pos_n)')
+        plt.cla()
+        plt.bar([1,2],self.Pair.totalTravel,width=0.5,color='k')
+        plt.title('total travel')
    
         plt.tight_layout()
         plt.show()
+        
+        pdfPath=self.expInfo.aviPath+'.pdf'
+        with PdfPages(pdfPath) as pdf:
+            pdf.savefig()

@@ -12,7 +12,7 @@ import joFishHelper
 import unTileVideo_b
 import tkFileDialog
 
-avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test'))
+avi_path = tkFileDialog.askopenfilename()
 print avi_path
 Scl=unTileVideo_b.UnTileArenaVideo(avi_path)
 

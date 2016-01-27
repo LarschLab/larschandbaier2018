@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 
-def plotMapWithXYprojections(Map2D,projectWidth,targetSubplot,mapLim=31,projectionLim=0.3):
+def plotMapWithXYprojections(Map2D,projectWidth,targetSubplot,mapLim=31,projectionLim=0.03):
     #plot a heatmap with mean 'projections' left and bottom of heatmap
     inner_grid = gridspec.GridSpecFromSubplotSpec(3, 3,subplot_spec=targetSubplot,wspace=0.05, hspace=0.05)
     plt.subplot(inner_grid[:-1,:-1])   

@@ -27,15 +27,18 @@ class UnTileArenaVideo(object):
         self.fps=vp['fps']
         # load one frame to select arenas, convert to grayscale
         capture = cv2.VideoCapture(avi_path)
-        capture.set(cv2.CAP_PROP_POS_FRAMES,6)
-        image = capture.read()
-        image = capture.read()
-        image = capture.read()
-        image = capture.read()
-        image = capture.read()
-        capture.set(cv2.CAP_PROP_POS_FRAMES,60)
-        image = capture.read()
-        gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
+        #capture.set(cv2.CAP_PROP_POS_FRAMES,6)
+        #image = capture.read()
+        #image = capture.read()
+        #image = capture.read()
+        #image = capture.read()
+        #image = capture.read()
+       # capture.set(cv2.CAP_PROP_POS_FRAMES,60)
+        #image = capture.read()
+        #gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
+        joFishHelper.getMedVideo(avi_path,9,1)
+        bgPath=(head+'/bgMed.tif')        
+        gray=cv2.imread(bgPath)
         
         #wx dialog box
         def ask(parent=None, message='', default_value=''):
