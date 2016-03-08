@@ -36,8 +36,10 @@ class UnTileArenaVideo(object):
        # capture.set(cv2.CAP_PROP_POS_FRAMES,60)
         #image = capture.read()
         #gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
+        bgPath=(head+'/bgMed.tif')  
+        
         joFishHelper.getMedVideo(avi_path,9,1)
-        bgPath=(head+'/bgMed.tif')        
+           
         gray=cv2.imread(bgPath)
         
         #wx dialog box

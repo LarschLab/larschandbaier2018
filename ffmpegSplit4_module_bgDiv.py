@@ -12,7 +12,7 @@ import joFishHelper
 import unTileVideo_b
 import tkFileDialog
 
-avi_path = tkFileDialog.askopenfilename()
+avi_path = tkFileDialog.askopenfilename(initialdir='d:/data/b/2016/')
 print avi_path
 Scl=unTileVideo_b.UnTileArenaVideo(avi_path)
 
@@ -75,7 +75,7 @@ def videoSplit(aviP,tileList):
     #'-q:v', '5',
     #'-g', '10',
     #'-keyint_min','10',
-    '-r','30',
+    '-r','60',
     '-filter_complex', fc[:-1]]
 
     cmd.extend(mc[1:])    

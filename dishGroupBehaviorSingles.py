@@ -16,32 +16,37 @@ batchmode=1
 timeStim=1
 
 if batchmode:
-    #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish_20160107.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/fish_skype_10cmDish_2016_a.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/LightOnOff_10cmDish_2016_a.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish_20160205.csv',sep=',')
-    df=pd.read_csv('d:/data/b/nacre_20160201.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/20160210_ledDIM.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/stack_pairs_10cmDish_2015_ab.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/TL_isolatedVsGroup.csv',sep=',')
+    df=pd.read_csv('d:/data/b/nacre_20160201_single.csv',sep=',')
     experiment=[];
     
-    with PdfPages('d:/data/b/nacre2016.pdf') as pdf:
-    #with PdfPages('d:/data/b/OnOff_2016a.pdf') as pdf:
-    #with PdfPages('d:/data/b/TL_isolatedVsGroup.pdf') as pdf:
+    
         
+    for index, row in df.iterrows():
+        print 'processing: ', row['aviPath']
+        currAvi=row['aviPath']
+        experiment.append(joFishHelper.experiment(currAvi))
+        #experiment[index].plotOverview()
+        #pdf.savefig()  # saves the current figure into a pdf page
+        #plt.close()
+    
+    #pair up each single animal with another single animal from another experiment
+    
+    loopList=np.roll(range(14),1)
+    expDur=30*60*60
+    for index, row in df.iterrows():
+        pairedTrajectories=np.append(experiment[index].rawTra[range(expDur),:,:],experiment[loopList[index]].rawTra[range(expDur),:,:],axis=1)
+        experiment[index].Pair=joFishHelper.Pair(pairedTrajectories,experiment[index].expInfo)
+        experiment[index].sPair=joFishHelper.shiftedPair(experiment[index].Pair,experiment[index].expInfo)
+        experiment[index].ShoalIndex=(experiment[index].sPair.spIAD_m-experiment[index].Pair.IAD_m)/experiment[index].sPair.spIAD_m
+        experiment[index].totalPairTravel=sum(experiment[index].Pair.totalTravel)
+    
+    with PdfPages('d:/data/b/nacre2016_single.pdf') as pdf:
         for index, row in df.iterrows():
             print 'processing: ', row['aviPath']
-            currAvi=row['aviPath']
-            #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
-            #Tkinter.Tk().withdraw() # Close the root window - not working?
-            experiment.append(joFishHelper.experiment(currAvi))
             experiment[index].plotOverview()
             pdf.savefig()  # saves the current figure into a pdf page
-            plt.close()
-            
-            
+            plt.close()        
+        
         df['ShoalIndex']=pd.DataFrame([f.ShoalIndex for f in experiment])
         df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in experiment])
         IADall=[]

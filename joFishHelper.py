@@ -35,7 +35,16 @@ class ExperimentMeta(object):
         #concatenate dependent file paths (trajectories, pre-analysis)
         head, tail = os.path.split(path)
         head=os.path.normpath(head)
-        self.trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
+        
+        trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
+        if np.equal(~os.path.isfile(trajectoryPath),-2):
+            self.trajectoryPath = trajectoryPath
+        else:
+            trajectoryPath = os.path.join(head,'trajectories.mat')
+            if np.equal(~os.path.isfile(trajectoryPath),-2):
+                self.trajectoryPath = trajectoryPath
+                
+            
         self.dataPath = os.path.join(head,'analysisData.mat')
         
 def getVideoProperties(aviPath):
@@ -62,7 +71,8 @@ def getMedVideo(aviPath,FramesToAvg,saveFile):
     vp=getVideoProperties(aviPath)
     videoDims = tuple([int(vp['width']) , int(vp['height'])])
     print videoDims
-    numFrames=int(vp['nb_frames'])
+    #numFrames=int(vp['nb_frames'])
+    numFrames=50000
     img1=cap.read()
     img1=cap.read()
     img1=cap.read()
@@ -94,7 +104,8 @@ class Pair(object):
         maxPixel=np.nanmax(self.positionPx,0)
         minPixel=np.nanmin(self.positionPx,0)
         arenaDiameterPx=np.mean(maxPixel-minPixel)
-        expInfo.pxPmm=arenaDiameterPx/expInfo.arenaDiameter_mm
+        #expInfo.pxPmm=arenaDiameterPx/expInfo.arenaDiameter_mm
+        expInfo.pxPmm=8.6
         expInfo.arenaCenterPx=np.mean(maxPixel-(arenaDiameterPx/2),axis=0)
         
         self.position=(self.positionPx-expInfo.arenaCenterPx) / expInfo.pxPmm
@@ -105,6 +116,7 @@ class Pair(object):
         self.totalTravel=np.sum(np.abs(self.travel),axis=0)
         self.accel=np.diff(self.speed,axis=0)
         self.heading=np.transpose(mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1]),[1,2,0]) #heading[0] = heading, heading[1] = speed
+        #heading: pointing right = 0, pointung up = pi/2      
         self.d_heading=np.diff(self.heading[0],axis=0)
         
         #absolute inter animal distance IAD
@@ -113,44 +125,46 @@ class Pair(object):
         self.IAD_m=np.nanmean(self.IAD)
         
         #relative distance between animals
-        self.neighborMat,self.relPosPolRotCart = getRelativeNeighborPositions(self.position,self.heading)
+        self.neighborMat,self.relPosPolRotCart,self.relPos= getRelativeNeighborPositions(self.position,self.heading)
         
         #force map between animals
         self.ForceMat = getNeighborForce(self.relPosPolRotCart,self.accel)
         
-        self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
+        #self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
         
 def getRelativeNeighborPositions(position,heading):
     pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
     
-    relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2
+    relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2. (where animal 2 has a neighbor)
     relPos2=pos[:,1,:]-pos[:,0,:]  
     
     relPos=np.transpose([relPos1,relPos2],[1,0,2])
     
     relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
     relPosPolRot=relPosPol.copy()
-    relPosPolRot[:,0,0]=relPosPol[:,0,0]-(heading[:,0,0])
-    relPosPolRot[:,1,0]=relPosPol[:,1,0]-(heading[:,1,0])
+    #rotate 
+    relPosPolRot[:,0,0]=relPosPol[:,0,0]-(heading[:,1,0])
+    relPosPolRot[:,1,0]=relPosPol[:,1,0]-(heading[:,0,0])
     relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
     relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
     
     mapBins=np.arange(-31,32)
     neighborMat=np.zeros([62,62,2])
     #creates the neighbormat for animal 2 (where animal1 was)
+    #this map seems flipped both horizontally and vertically! vertical is corrected at plotting.
     neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
     #creates the neighbormat for animal 1 (where animal2 was)
     neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
-    return neighborMat,relPosPolRotCart
+    return neighborMat,relPosPolRotCart, relPos
     
 def getNeighborForce(position,acceleration):
     #position here should be transformed (rotated, relative). [:,0,:] is the position of 
     mapBins=np.arange(-31,32)
     force_t=np.zeros([62,62,2])
+    #animal 2 
+    force_t[:,:,1]=sta.binned_statistic_2d(position[1:,0,0],position[1:,0,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
     #animal 1
-    force_t[:,:,0]=sta.binned_statistic_2d(position[1:,0,0],position[1:,0,1],acceleration[:,0],bins=[mapBins,mapBins])[0]
-    #animal 2
-    force_t[:,:,1]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
+    force_t[:,:,0]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,0],bins=[mapBins,mapBins])[0]
     return force_t
 
 def getShoalDwellTimes(IAD):
@@ -179,6 +193,18 @@ def getShoalDwellTimes(IAD):
 
     return HiDwell,LowDwell,HighToLow,LowToHigh
 
+
+def distanceTimeSeries(X):
+    if ~('result' in locals()):
+        result=np.array([])
+    
+    result=np.append(result,abs(X[0]-X[1:]))
+        
+    if np.shape(X)[0]>2:
+        result=np.append(result,distanceTimeSeries(X[1:]))
+
+    return result
+
 class shiftedPair(object):
     #Class to calculate null hypothesis time series using shifted pairs of animals
     def __init__(self, tra,expInfo):
@@ -195,7 +221,6 @@ class shiftedPair(object):
         #calculate mean and std IAD for the goup of shifted instances
         self.spIAD_m = np.nanmean([x.IAD_m for x in self.sPair])
         self.spIAD_std = np.nanstd([x.IAD_m for x in self.sPair])
-       
        
 
        
@@ -214,13 +239,15 @@ class experiment(object):
             LastNan=np.max(nanInd)+1
         
         rawTra=rawTra[LastNan:,:,:]
-        self.Pair=Pair(rawTra,self.expInfo)
+        self.rawTra=rawTra
+        if np.shape(rawTra)[1]>1:
+            self.Pair=Pair(rawTra,self.expInfo)
         
-        #generate shifted control 'mock' pairs
-        self.sPair=shiftedPair(self.Pair,self.expInfo)
-        self.ShoalIndex=(self.sPair.spIAD_m-self.Pair.IAD_m)/self.sPair.spIAD_m
-        self.totalPairTravel=sum(self.Pair.totalTravel)
-        #Plot results
+            #generate shifted control 'mock' pairs
+            self.sPair=shiftedPair(self.Pair,self.expInfo)
+            self.ShoalIndex=(self.sPair.spIAD_m-self.Pair.IAD_m)/self.sPair.spIAD_m
+            self.totalPairTravel=sum(self.Pair.totalTravel)
+            #Plot results
     
     def plotOverview(self):
         outer_grid = gridspec.GridSpec(4, 3)        
@@ -272,7 +299,7 @@ class experiment(object):
         plt.subplot(4,3,7)
         plt.cla()
         meanPosMat=np.nanmean(self.Pair.neighborMat,axis=2)
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100])
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
@@ -280,7 +307,7 @@ class experiment(object):
         plt.subplot(4,3,10)
         plt.cla()
         meanPosMat=self.Pair.neighborMat[:,:,0]
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100])
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
@@ -288,7 +315,7 @@ class experiment(object):
         plt.subplot(4,3,11)
         plt.cla()
         meanPosMat=self.Pair.neighborMat[:,:,1]
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100])
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
