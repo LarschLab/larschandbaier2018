@@ -12,22 +12,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-batchmode=1
-timeStim=1
+batchmode=0
+timeStim=0
+sizePlot=0
+systShift=0
 
 if batchmode:
-    #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish_20160107.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/fish_skype_10cmDish_2016_a.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/LightOnOff_10cmDish_2016_a.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/GRvsHet_pairs_10cmDish_20160205.csv',sep=',')
-    df=pd.read_csv('d:/data/b/nacre_20160201.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/20160210_ledDIM.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/stack_pairs_10cmDish_2015_ab.csv',sep=',')
-    #df=pd.read_csv('d:/data/b/TL_isolatedVsGroup.csv',sep=',')
-    experiment=[];
-    
-    with PdfPages('d:/data/b/nacre2016.pdf') as pdf:
+    ExpFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+    PdfFile=ExpFile[:-4]+'.pdf'
+    df=pd.read_csv(ExpFile,sep=',')
+    experiment=[]
+    systShiftAll=[]
+    with PdfPages(PdfFile) as pdf:
     #with PdfPages('d:/data/b/OnOff_2016a.pdf') as pdf:
     #with PdfPages('d:/data/b/TL_isolatedVsGroup.pdf') as pdf:
         
@@ -37,15 +33,20 @@ if batchmode:
             #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
             #Tkinter.Tk().withdraw() # Close the root window - not working?
             experiment.append(joFishHelper.experiment(currAvi))
-            experiment[index].plotOverview()
+            experiment[index].plotOverview(row['condition'])
             pdf.savefig()  # saves the current figure into a pdf page
             plt.close()
+            
+            if systShift:
+                systShiftAll.append(joFishHelper.shiftedPairSystematic(experiment[index].Pair, experiment[index].expInfo, 60))
+            
             
             
         df['ShoalIndex']=pd.DataFrame([f.ShoalIndex for f in experiment])
         df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in experiment])
+        df['avgSpeed']=pd.DataFrame([f.avgSpeed for f in experiment])
         IADall=[]
-        IADall.append([x.Pair.IAD[0:30*60*60] for x in experiment])
+        IADall.append([x.Pair.IAD[0:30*60*90] for x in experiment])
         t=np.nanmean(IADall,axis=1)
         smIAD_mAll=np.nanmean([f.sPair.spIAD_m for f in experiment])
         
@@ -54,8 +55,8 @@ if batchmode:
         sns.boxplot(ax=axes[0],x='condition',y='ShoalIndex',data=df,width=0.2)
         sns.stripplot(ax=axes[0],x='condition',y='ShoalIndex',data=df, size=4,jitter=True,edgecolor='gray')
 
-        sns.boxplot(ax=axes[1],x='condition',y='totalTravel',data=df,width=0.2)
-        sns.stripplot(ax=axes[1],x='condition',y='totalTravel',data=df, size=4,jitter=True,edgecolor='gray')
+        sns.boxplot(ax=axes[1],x='condition',y='avgSpeed',data=df,width=0.2)
+        sns.stripplot(ax=axes[1],x='condition',y='avgSpeed',data=df, size=4,jitter=True,edgecolor='gray')
         
         axes[0].set_ylim(-0.1,1)
         axes[1].set_ylim(0,)
@@ -74,7 +75,50 @@ if batchmode:
             plt.title('Inter Animal Distance over time')
         
         pdf.savefig()
+        
+        if sizePlot:
+            AnS=np.sqrt(np.sort(np.array([f.AnSize[:,1] for f in experiment]),axis=1))/3
+            AnSm=np.mean(AnS,axis=1)
+            si=([f.ShoalIndex for f in experiment])
+            xErr=np.abs(AnS[:,0]-AnS[:,1])/2
+            plt.figure()
+            ebx=plt.errorbar(AnSm,si,xerr=xErr,ecolor='k',fmt=' ')
+            ebx[-1][0].set_linestyle(':')
+            eby=plt.errorbar(AnSm,si,yerr=0.01,ecolor='gray',fmt=' ')
+            plt.scatter(AnS[:,0],si,s=50,marker='d',c='m')
+            plt.scatter(AnS[:,1],si,s=50,marker='d',c='g')
+            pdf.savefig()
+            
+            leadershipIndex=np.array([f.LeadershipIndex for f in experiment])
+            AnSd=np.zeros(np.shape(AnS))
+            AnSd[:,0]=AnS[:,1]-AnS[:,0]
+            AnSd[:,1]=AnS[:,0]-AnS[:,1]
+            plt.figure()
+            plt.scatter(AnSd[:],leadershipIndex[:])
+            plt.xlabel('size difference [mm]')
+            plt.ylabel('leadership index')
+            pdf.savefig()
+        
+        if systShift:
+            a=np.array(systShiftAll)
+            m=np.mean(a,axis=0)
+            e=np.std(a,axis=0)
+            plt.figure()
+            plt.plot(a.T,color=[.7,.7,.7],zorder=1)
+            plt.errorbar(range(60),m,yerr=e,color='k',zorder=2)
+            plt.plot(m,lw=5,color='k')
+            plt.xlim([-1,60])
+            plt.xlabel('time shift [s]')
+            plt.ylabel('inter animal distance [mm]')
+            pdf.savefig()
+            
+
+            
 else:    
     avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
     experiment=joFishHelper.experiment(avi_path)
     experiment.plotOverview()
+
+
+    
+    

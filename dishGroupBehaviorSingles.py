@@ -16,7 +16,9 @@ batchmode=1
 timeStim=1
 
 if batchmode:
-    df=pd.read_csv('d:/data/b/nacre_20160201_single.csv',sep=',')
+    ExpFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+    PdfFile=ExpFile[:-4]+'.pdf'
+    df=pd.read_csv(ExpFile,sep=',')
     experiment=[];
     
     
@@ -40,7 +42,7 @@ if batchmode:
         experiment[index].ShoalIndex=(experiment[index].sPair.spIAD_m-experiment[index].Pair.IAD_m)/experiment[index].sPair.spIAD_m
         experiment[index].totalPairTravel=sum(experiment[index].Pair.totalTravel)
     
-    with PdfPages('d:/data/b/nacre2016_single.pdf') as pdf:
+    with PdfPages(PdfFile) as pdf:
         for index, row in df.iterrows():
             print 'processing: ', row['aviPath']
             experiment[index].plotOverview()

@@ -75,7 +75,7 @@ def videoSplit(aviP,tileList):
     #'-q:v', '5',
     #'-g', '10',
     #'-keyint_min','10',
-    '-r','60',
+    '-r','30',
     '-filter_complex', fc[:-1]]
 
     cmd.extend(mc[1:])    
