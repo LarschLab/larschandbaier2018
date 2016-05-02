@@ -324,10 +324,10 @@ class AnimalShapeParameters(object):
         sharp_gamma = 0
         
         threshold_eyes = 100
-        threshold_chest = 120
-        max_eye_distance=5
-        threshold_step=0.1
-        threshold_steps=10
+        threshold_chest = 130
+        max_eye_distance=10
+        threshold_step=0.02
+        threshold_steps=50
         
         dilate_iteration_eyes = 0
         dilate_iteration_chest = 0
@@ -372,18 +372,6 @@ class AnimalShapeParameters(object):
             
             if good_eyes:
                 
-                
-
-                    
-            # if there are 2 contours, then next time search in the small area around the fish
-            search_in_detected_region = contours_eyes.__len__() > 1
-        
-            # if there is a detected fish (we know that if we have eyes),
-            if search_in_detected_region:
-                # Keep the biggest two contours (they represent the eyes)
-                # this is likely not robust
-                contours_eyes = ImageProcessor.get_biggest_n_contours(contours_eyes, 2)
-                
                 # Get the center point of these contours (the center point between the eyes)
                 center_eyes = ImageProcessor.get_contours_centroid(contours_eyes)
                 
@@ -401,14 +389,14 @@ class AnimalShapeParameters(object):
                 img_binary_chest = ImageProcessor.to_binary(img_finding_chest, threshold_chest)
         
                 # Dilate the image (increase the white pixels, so the spaces between them will be reduced).
-                #img_dilated_chest = cv2.dilate(img_binary_chest, kernel, dilate_iteration_chest)
-                img_dilated_chest=img_binary_chest.copy()
+                img_dilated_chest = cv2.dilate(img_binary_chest, kernel, dilate_iteration_chest)
+                #img_dilated_chest=img_binary_chest.copy()
                 
                 # Get all the contours in the image
                 im_tmp2,contours_chest, hierarchy = cv2.findContours(img_dilated_chest, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
-                # Keep the biggest three contours (they represent the chest and the eyes)
-                contours_chest = ImageProcessor.get_biggest_n_contours(contours_chest, 3)
+                # Keep the biggest two contours (they represent the chest and both eyes combined in one blob)
+                contours_chest = ImageProcessor.get_biggest_n_contours(contours_chest, 2)
         
                 # Get the center point of these contours (the center point between the chest and the eyes)
                 center_chest = ImageProcessor.get_contours_centroid(contours_chest)
@@ -419,7 +407,7 @@ class AnimalShapeParameters(object):
                 #
                 # The direction is the vector from the chest to the eyes.
         
-                # Calculate the direction of the fish (from the chest toward the center if the eyes)
+                # Calculate the direction of the fish (from the chest toward the center of the eyes)
                 headVector = center_eyes.__sub__(center_chest)      
                 fish_angle = geometry.Vector.get_angle(center_chest, center_eyes)
                 dirAll[i]=fish_angle
@@ -436,39 +424,40 @@ def find_good_eyes(img,start_threshold,max_eye_distance=5,threshold_step=0.1,thr
     #want:
     #2 blobs
     #appropriate distance
+    good_eyes=False
     threshold_eyes=start_threshold
-    contours_eyes,hierarchy,good_eyes=find_eyes(img,threshold_eyes,max_eye_distance)
+    contours_eyes,hierarchy,good_eyes=find_eyes(img.copy(),threshold_eyes,max_eye_distance)
     #expect two contours close to each other (eye distance)
       
-    if contours_eyes.__len__() >2:
+    if contours_eyes.__len__() >2 or ((contours_eyes.__len__() == 2) and (good_eyes==False)):
         step=0
-        while contours_eyes.__len__() >2:
+        while contours_eyes.__len__() >2 or ((contours_eyes.__len__() == 2) and (good_eyes==False)):
             #threshold too low, already including chest.
             #--> increase threshold by threshold_step
-            threshold_eyes=int(threshold_eyes + threshold_eyes*threshold_step)
-            step += 1
-            if step > threshold_steps:
-                break
-            contours_eyes,hierarchy,good_eyes=find_eyes(img,threshold_eyes,max_eye_distance)
-    
-    if contours_eyes.__len__() <2 or ((contours_eyes.__len__() == 2) and (good_eyes==False)):
-        step=0
-        while contours_eyes.__len__() <2:
-            #threshold too high, only getting one eye.
-            #--> lower threshold by threshold_step
             threshold_eyes=int(threshold_eyes - threshold_eyes*threshold_step)
             step += 1
             if step > threshold_steps:
                 break
-            contours_eyes,hierarchy,good_eyes=find_eyes(img,threshold_eyes,max_eye_distance)
+            contours_eyes,hierarchy,good_eyes=find_eyes(img.copy(),threshold_eyes,max_eye_distance)
+    
+    if contours_eyes.__len__() <2:
+        step=0
+        while contours_eyes.__len__() <2:
+            #threshold too high, only getting one eye.
+            #--> lower threshold by threshold_step
+            threshold_eyes=int(threshold_eyes + threshold_eyes*threshold_step)
+            step += 1
+            if step > threshold_steps:
+                break
+            contours_eyes,hierarchy,good_eyes=find_eyes(img.copy(),threshold_eyes,max_eye_distance)
      
-     return contours_eyes,hierarchy,good_eyes
+    return contours_eyes,good_eyes
         
 
     
     def find_eyes(img,start_threshold,max_eye_distance):
-        img_binary_eyes = ImageProcessor.to_binary(img, start_threshold)
-    
+        img_binary_eyes = ImageProcessor.to_binary(img.copy(), start_threshold)
+        good_eyes = False
         # Dilate the image (increase the white pixels, so the spaces between them will be reduced).
         #img_dilated_eyes = cv2.erode(img_binary_eyes, kernel, dilate_iteration_eyes)
         #img_dilated_eyes=img_binary_eyes.copy()
@@ -476,7 +465,12 @@ def find_good_eyes(img,start_threshold,max_eye_distance=5,threshold_step=0.1,thr
         im_tmp,contours_eyes, hierarchy = cv2.findContours(img_binary_eyes.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         
         #remove very small contours (noise)            
-        contours_eyes=remove_contours_smaller_than(contours_eyes,1)
+        contours_eyes=remove_contours_smaller_than(contours_eyes,0.1)
+        
+        #if finding 3 contours, chest probably included.
+        #select the 2 that are closest to each other
+        
+        
         
         if contours_eyes.__len__() ==2:
             #find centroids of each contour
@@ -487,8 +481,8 @@ def find_good_eyes(img,start_threshold,max_eye_distance=5,threshold_step=0.1,thr
             if center_distance < max_eye_distance:
                 good_eyes = True
                 
-            else:
-                good_eyes = False
+            #else:
+                
                 #for now: give up on this frame
                 
                 #eyes might have been combined into one blob and chest was the other blob?
