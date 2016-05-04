@@ -325,6 +325,8 @@ class AnimalShapeParameters(object):
         
         threshold_eyes = 100
         threshold_chest = 130
+        threshold_dark = 185
+        threshold_dark_hull = 230
         max_eye_distance=10
         threshold_step=0.02
         threshold_steps=50
@@ -336,7 +338,10 @@ class AnimalShapeParameters(object):
         video = cv2.VideoCapture(path)
         nframes=400
         dirAll=np.zeros(nframes)
+        dirAlle=np.zeros(nframes)
+        dirAllm=np.zeros(nframes)
         frAll=[]
+        frAll_rot=[]
         
         for i in range(nframes):
             # Get the frame
@@ -350,6 +355,123 @@ class AnimalShapeParameters(object):
                 img_crop=img_frame_original
             
 
+            img_finding_dark=img_crop.copy()
+            img_binary_dark = ImageProcessor.to_binary(img_finding_dark, threshold_dark)            
+            im_tmp2,contours_dark, hierarchy = cv2.findContours(img_binary_dark.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            contours_dark = ImageProcessor.get_biggest_n_contours(contours_dark, 1)
+            center_dark = ImageProcessor.get_contours_centroid(contours_dark)
+            elipse_fit=cv2.fitEllipse(contours_dark[0])
+            elipse_orientation=np.mod(90+elipse_fit[2],180)
+            
+            mom = cv2.moments(contours_dark[0])
+            
+            ori_mom=0.5*np.arctan2(2*mom['m21'],(mom['m20']-mom['m02']))
+
+            dirAllm[i]=np.degrees(ori_mom)            
+            
+            #determine orientation front/back based on convexity
+            #find convex hull contour and calculate angles between points
+            #tail should be the pointiest point of the contour
+            img_finding_dark_hull=img_crop.copy()
+            img_binary_dark_hull = ImageProcessor.to_binary(img_finding_dark, threshold_dark_hull)            
+            im_tmp3,contours_dark_hull, hierarchy = cv2.findContours(img_binary_dark_hull.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            contours_dark_hull = ImageProcessor.get_biggest_n_contours(contours_dark_hull, 1)
+            
+            cnt = contours_dark_hull[0]
+            img=255-img_binary_dark_hull.copy()
+            img_col = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            hull = cv2.convexHull(cnt,returnPoints = False)
+            hull_all = cv2.convexHull(cnt,returnPoints = True)
+            hull_all_rot1=np.roll(hull_all,1,axis=0)
+            hull_all_rot2=np.roll(hull_all,2,axis=0)
+            defects = cv2.convexityDefects(cnt,hull)
+            hull_angles=[]
+            #calculate hull contour angles
+            #angle between lines defined by 3 adjacent hull contour points
+            for j in range(hull_all.shape[0]):
+                v1=Vector(hull_all[j][0][0]-hull_all_rot1[j][0][0],hull_all[j][0][1]-hull_all_rot1[j][0][1])
+                v3=Vector(hull_all_rot2[j][0][0]-hull_all_rot1[j][0][0],hull_all_rot2[j][0][1]-hull_all_rot1[j][0][1])
+                hull_angle_direct=v1.get_angleb(v3)
+
+                hull_angles.append(hull_angle_direct)
+            
+            #lowest angle defines tail tip
+            tail_tip=hull_all_rot1[np.argmin(hull_angles)]
+            
+            
+            
+            #plot the hull around contour including convexity defects
+            for j in range(defects.shape[0]):
+                s,e,f,d = defects[j,0]
+                start = tuple(cnt[s][0])
+                end = tuple(cnt[e][0])
+                far = tuple(cnt[f][0])
+                cv2.line(img_col,start,end,[0,255,0],1)
+                cv2.circle(img_col,far,1,[0,0,255],-1)
+            
+            plt.imshow(img_col)
+            img_col = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            img_cont_poly=cv2.drawContours(img_col.copy(),hull_all,-1,[255,0,0],2)   
+            plt.imshow(img_cont_poly)
+            
+            #probably should use polygon around contour, not hull           
+            epsilon = 0.02*cv2.arcLength(cnt,True)
+            approx = cv2.approxPolyDP(cnt,epsilon,True)
+            
+            hull_all = approx.copy()
+            hull_all_rot1=np.roll(hull_all,1,axis=0)
+            hull_all_rot2=np.roll(hull_all,2,axis=0)
+            defects = cv2.convexityDefects(cnt,hull)
+            hull_angles=[]
+            #calculate hull contour angles
+            #angle between lines defined by 3 adjacent hull contour points
+            for j in range(hull_all.shape[0]):
+#                v1=Vector(hull_all[j][0][0],hull_all[j][0][1])
+#                v2=Vector(hull_all_rot1[j][0][0],hull_all_rot1[j][0][1])
+#                v3=Vector(hull_all_rot2[j][0][0],hull_all_rot2[j][0][1])
+#                hull_angle1=geometry.Vector.get_angle(v2, v1)
+#                hull_angle2=geometry.Vector.get_angle(v2, v3)
+#                hull_angle_diff=np.min([np.mod((hull_angle2-hull_angle1),180),np.mod((hull_angle1-hull_angle2),180)])
+#                hull_angles.append(hull_angle_diff)
+                
+                v1=Vector(hull_all[j][0][0]-hull_all_rot1[j][0][0],hull_all[j][0][1]-hull_all_rot1[j][0][1])
+                v3=Vector(hull_all_rot2[j][0][0]-hull_all_rot1[j][0][0],hull_all_rot2[j][0][1]-hull_all_rot1[j][0][1])
+                hull_angle_direct=v1.get_angleb(v3)
+                hull_angles.append(hull_angle_direct)
+            
+            tail_tip=hull_all_rot1[np.argmin(hull_angles)]
+            
+            img_cont_poly=cv2.drawContours(img_col.copy(),approx,-1,[255,0,0],2)            
+            
+            #need to decide where front and back are
+            #look for darkest point - should be eye most of the time
+            
+            mask = np.zeros(img_finding_dark.shape,np.uint8)
+            cv2.drawContours(mask,[contours_dark[0]],0,255,-1)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(255-img_finding_dark,mask = mask)
+            center_to_eye_angle = np.mod(180-geometry.Vector.get_angle(center_dark, Vector(max_loc[0],max_loc[1])),360)
+            tail_to_center_angle= np.mod(180-geometry.Vector.get_angle(Vector(tail_tip[0][0],tail_tip[0][1]),center_dark),360)
+            elipse_orientationb=elipse_orientation.copy()
+            
+            if np.abs(tail_to_center_angle-elipse_orientation)>60:
+                if np.abs(tail_to_center_angle-elipse_orientation)<300:
+                    elipse_orientation=np.mod(elipse_orientation+180,360)
+                    
+            if np.abs(center_to_eye_angle-elipse_orientationb)>60:
+                if np.abs(center_to_eye_angle-elipse_orientationb)<300:
+                    elipse_orientationb=np.mod(elipse_orientationb+180,360)
+                
+            dirAlle[i]=elipse_orientation
+            dirAllm[i]=elipse_orientationb
+            #rotate input image according to orientation
+              
+            M_trans = np.float32([[1,0,50-center_dark[0]],[0,1,50-center_dark[1]]])
+            img_trans = cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
+            
+            M_rot = cv2.getRotationMatrix2D((50,50),elipse_orientation,1)
+            img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
+            
+            frAll_rot.append(img_rot)
     
             # Reduce the noise by blurring it (get rid of the small spots here and there)
             #img_blur = cv2.GaussianBlur(img_crop, (25, 25), 0)
@@ -412,6 +534,7 @@ class AnimalShapeParameters(object):
                 fish_angle = geometry.Vector.get_angle(center_chest, center_eyes)
                 dirAll[i]=fish_angle
                 
+                
                 if center_eyes:
                     #cv2.circle(img_frame_original, (center_eyes.x + fish_region.top_left.x, center_eyes.y + fish_region.top_left.y), 5,
                     #   (0, 0, 255), 2)
@@ -419,6 +542,8 @@ class AnimalShapeParameters(object):
                     cv2.circle(img_frame_original, (center_chest.x, center_chest.y), 2,(0, 0, 255), 1)
                     cv2.imshow('Frame', img_frame_original)
                     frAll.append(img_frame_original)
+                
+                
 
 def find_good_eyes(img,start_threshold,max_eye_distance=5,threshold_step=0.1,threshold_steps=10):
     #want:

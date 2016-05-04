@@ -159,7 +159,7 @@ class Vector(object):
         """
         return sum(a * b for a, b in zip(self, other))
 
-    def get_angle(self, other):
+    def get_angleb(self, other):
 
         product = self.inner(other)
         cos_angle = product.__div__(self.norm() * other.norm())

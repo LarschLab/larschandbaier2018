@@ -247,6 +247,11 @@ def get_contours_centroid(contours):
 
     return None
 
+def pick_two_closest_contours(contours):
+    each_centroid=get_each_contours_centroid(contours)
+
+    
+    
 
 def remove_contours_smaller_than(contours, min_area):
     newContours=[]
