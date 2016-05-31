@@ -5,6 +5,22 @@ Created on Fri May 06 00:03:18 2016
 @author: jlarsch
 """
 
+import numpy as np
+import subprocess
+import os
+import matrixUtilities_joh as mu
+import random
+import scipy.io
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import scipy.stats as sta
+import plotFunctions_joh as johPlt
+import randSpacing
+import cv2
+from matplotlib.backends.backend_pdf import PdfPages
+import geometry
+import ImageProcessor
+
 class AnimalShapeParameters(object):
     #obtain descriptive shape parameters of animals
     #typically starting from a video tracked (by idTracker), return to the video to extract further shape information
@@ -79,7 +95,7 @@ class AnimalShapeParameters(object):
             ret, img_frame_original = video.read()
             
             if trajectory !='none':
-                currCenter=xy_point(trajectory[i,:])
+                currCenter=geometry.Vector(*trajectory[i,:][0])
                 img_crop=self.cropAnimal(img_frame_original,currCenter)
             else:
                 img_crop=img_frame_original
@@ -100,7 +116,7 @@ class AnimalShapeParameters(object):
             # find robust 0-180 major axis orientation
             # use a low threshold contour that includes the rigid fish body but not the flexible tail
 
-            contour_fish_dark, centerOfMass = self.get_fish_contour(img_crop,threshold_elipse)
+            contour_fish_dark, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_elipse)
             fish_orientation_elipse = self.get_fish_ellipse_angle(contour_fish_dark)
             #fish_orientation_moment = self.get_fish_moment_angle(contour_fish_dark)
             
@@ -159,11 +175,10 @@ class AnimalShapeParameters(object):
         #calculate polygon angles
         #angle between lines defined by 3 adjacent polygon points
         for j in range(contour.shape[0]):
-            
-            v1=Vector(*vectors_backward[j])
-            v2=Vector(*vectors_forward[j])                    
+            v1=geometry.Vector(*vectors_backward[j])
+            v2=geometry.Vector(*vectors_forward[j])                    
             contour_angles.append(v1.get_angleb(v2))
-        
+            #contour_angles.append(geometry.Vector.get_angle(v1,v2))
         return contour_angles    
 
     

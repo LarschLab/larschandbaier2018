@@ -300,7 +300,7 @@ class experiment(object):
         if np.shape(rawTra)[1]>1:
             self.Pair=Pair(rawTra.copy(),self.expInfo)
         
-            self.AnShape=AnimalShapeParameters()
+            #self.AnShape=AnimalShapeParameters()
             
             #generate shifted control 'mock' pairs
             self.sPair=shiftedPair(self.Pair,self.expInfo)
