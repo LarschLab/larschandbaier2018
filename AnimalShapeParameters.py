@@ -6,18 +6,7 @@ Created on Fri May 06 00:03:18 2016
 """
 
 import numpy as np
-import subprocess
-import os
-import matrixUtilities_joh as mu
-import random
-import scipy.io
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import scipy.stats as sta
-import plotFunctions_joh as johPlt
-import randSpacing
 import cv2
-from matplotlib.backends.backend_pdf import PdfPages
 import geometry
 import ImageProcessor
 
@@ -71,22 +60,11 @@ class AnimalShapeParameters(object):
     #process sub region around fish
     def crawlVideo(self,path,trajectory='none'):
         
-        threshold_eyes = 100
-        threshold_chest = 130
         threshold_elipse = 185
-        threshold_dark_hull = 230
-        max_eye_distance=10
-        threshold_step=0.02
-        threshold_steps=50
-        
-        dilate_iteration_chest = 0
-        kernel = np.ones((3, 3), np.uint8)
         
         video = cv2.VideoCapture(path)
         nframes=4000
-        dirAll=np.zeros(nframes)
         fish_orientation_elipse_all=np.zeros(nframes)
-        frAll=[]
         frAll_rot=[]
         
         for i in range(nframes):
@@ -95,7 +73,7 @@ class AnimalShapeParameters(object):
             ret, img_frame_original = video.read()
             
             if trajectory !='none':
-                currCenter=geometry.Vector(*trajectory[i,:][0])
+                currCenter=geometry.Vector(*trajectory[i,:])
                 img_crop=self.cropAnimal(img_frame_original,currCenter)
             else:
                 img_crop=img_frame_original

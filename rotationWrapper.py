@@ -18,11 +18,14 @@ af = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
 experiment=joFishHelper.experiment(af)
 t=experiment.Pair.positionPx
 
-asp=AnimalShapeParameters.AnimalShapeParameters(af,t)
-plt.plot(asp.fish_orientation_elipse_all)
-mr=np.array(asp.frAll_rot)
+asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:])
+asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:])
+plt.plot(asp1.fish_orientation_elipse_all)
+plt.plot(asp2.fish_orientation_elipse_all)
+
+mr=np.concatenate(np.array(asp1.frAll_rot),np.array(asp2.frAll_rot),axis=1)
 
 head, tail = os.path.split(af)
 head=os.path.normpath(head)
-rotVideoPath = os.path.join('d:\\',tail[:-4]+'_rotate.avi')
+rotVideoPath = os.path.join('d:\\',tail[:-4]+'_rotateBoth.avi')
 imsave(rotVideoPath, mr)
