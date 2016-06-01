@@ -83,7 +83,7 @@ class AnimalShapeParameters(object):
         kernel = np.ones((3, 3), np.uint8)
         
         video = cv2.VideoCapture(path)
-        nframes=400
+        nframes=4000
         dirAll=np.zeros(nframes)
         fish_orientation_elipse_all=np.zeros(nframes)
         frAll=[]

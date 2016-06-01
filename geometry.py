@@ -163,8 +163,11 @@ class Vector(object):
 
         product = self.inner(other)
         cos_angle = product.__div__(self.norm() * other.norm())
-        angle = math.acos(cos_angle)
-        angle = math.degrees(angle)
+        if cos_angle>1:
+            angle=np.nan
+        else:
+            angle = math.acos(cos_angle)
+            angle = math.degrees(angle)
         return angle
 
     def copy(self):
