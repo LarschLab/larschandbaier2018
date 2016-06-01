@@ -23,7 +23,7 @@ asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:])
 plt.plot(asp1.fish_orientation_elipse_all)
 plt.plot(asp2.fish_orientation_elipse_all)
 
-mr=np.concatenate(np.array(asp1.frAll_rot),np.array(asp2.frAll_rot),axis=1)
+mr=np.concatenate((np.array(asp1.frAll_rot),np.array(asp2.frAll_rot)),axis=1)
 
 head, tail = os.path.split(af)
 head=os.path.normpath(head)
