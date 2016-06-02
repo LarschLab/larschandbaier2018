@@ -14,12 +14,17 @@ import joFishHelper
 import matplotlib.pyplot as plt
 
 
-af = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+if 'af' in globals():
+    print af
+else:
+    af = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+    
 experiment=joFishHelper.experiment(af)
 t=experiment.Pair.positionPx
 
-asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:])
 asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:])
+asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:])
+
 plt.plot(asp1.fish_orientation_elipse_all)
 plt.plot(asp2.fish_orientation_elipse_all)
 

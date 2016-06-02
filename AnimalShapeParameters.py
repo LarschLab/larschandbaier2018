@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 import geometry
 import ImageProcessor
+import matplotlib.pyplot as plt
 
 class AnimalShapeParameters(object):
     #obtain descriptive shape parameters of animals
@@ -64,7 +65,7 @@ class AnimalShapeParameters(object):
         
         video = cv2.VideoCapture(path)
         nframes=4000
-        fish_orientation_elipse_all=np.zeros(nframes)
+        fish_orientation_elipse_all=np.nan(nframes)
         frAll_rot=[]
         
         for i in range(nframes):
@@ -93,37 +94,47 @@ class AnimalShapeParameters(object):
             
             # find robust 0-180 major axis orientation
             # use a low threshold contour that includes the rigid fish body but not the flexible tail
+            try:
+                contour_fish_dark, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_elipse)
+            
+            except:
+                plt.imshow(img_crop)
+                print i
+                1/0
 
-            contour_fish_dark, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_elipse)
-            fish_orientation_elipse = self.get_fish_ellipse_angle(contour_fish_dark)
+            if contour_fish_dark is not None:            
+                fish_orientation_elipse = self.get_fish_ellipse_angle(contour_fish_dark)
+            
             #fish_orientation_moment = self.get_fish_moment_angle(contour_fish_dark)
             
             # orient major axis using head-tail differences
             
             #find tail tip using polygon fit
-            tail_tip_polygon=self.get_tail_tip_polygon(contour_fish_dark)
+                tail_tip_polygon=self.get_tail_tip_polygon(contour_fish_dark)
             
             #get angle from tail to center of mass            
-            tail_to_center_angle= np.mod(180-geometry.Vector.get_angle(geometry.Vector(*tail_tip_polygon[0]),centerOfMass),360)
+                tail_to_center_angle= np.mod(180-geometry.Vector.get_angle(geometry.Vector(*tail_tip_polygon[0]),centerOfMass),360)
 
             #use elipse orientation, flip to approximately match tail-center angle (within 60 degrees)
             #tail-center angle and elipse angle should be off by only a couple of degrees or swapped by 180 degrees
-            if np.abs(tail_to_center_angle-fish_orientation_elipse)>60:
-                if np.abs(tail_to_center_angle-fish_orientation_elipse)<300:
-                    fish_orientation_elipse=np.mod(fish_orientation_elipse+180,360)
+                if np.abs(tail_to_center_angle-fish_orientation_elipse)>60:
+                    if np.abs(tail_to_center_angle-fish_orientation_elipse)<300:
+                        fish_orientation_elipse=np.mod(fish_orientation_elipse+180,360)
+                        
+    
                     
-
-                
-            fish_orientation_elipse_all[i]=fish_orientation_elipse
+                fish_orientation_elipse_all[i]=fish_orientation_elipse
             
             #generate rotation cancelled image
             #translate center of mass to image center
               
-            M_trans = np.float32([[1,0,50-centerOfMass[0]],[0,1,50-centerOfMass[1]]])
-            img_trans = cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
-            
-            M_rot = cv2.getRotationMatrix2D((50,50),fish_orientation_elipse,1)
-            img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
+                M_trans = np.float32([[1,0,50-centerOfMass[0]],[0,1,50-centerOfMass[1]]])
+                img_trans = cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
+                
+                M_rot = cv2.getRotationMatrix2D((50,50),fish_orientation_elipse,1)
+                img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
+            else:
+                
             
             frAll_rot.append(img_rot)
         return fish_orientation_elipse_all, frAll_rot
@@ -163,7 +174,12 @@ class AnimalShapeParameters(object):
     
     
     def get_fish_ellipse_angle(self,contour):
-        elipse_fit=cv2.fitEllipse(contour[0])
+        try:
+            elipse_fit=cv2.fitEllipse(contour[0])
+        except:
+            print 'hello'
+            print contour[0]
+            1/0
         elipse_orientation=np.mod(90+elipse_fit[2],180)
         return elipse_orientation
         
@@ -176,8 +192,16 @@ class AnimalShapeParameters(object):
     def get_fish_contour(self,img,threshold):
         img_binary = ImageProcessor.to_binary(img.copy(), threshold)            
         im_tmp2,contours, hierarchy = cv2.findContours(img_binary.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contour = ImageProcessor.get_biggest_n_contours(contours, 1)
-        centerOfMass = ImageProcessor.get_contours_centroid(contour)
+        #only keep contour containing the trajectory coordinate
+        #this would be the center of the cropped input image
+        img_center=geometry.Vector(img.shape[0]/2,img.shape[1]/2)
+        contour = ImageProcessor.get_contour_containing_point(contours,img_center)
+        
+        #contour = ImageProcessor.get_biggest_n_contours(contours, 1)
+        if contour is not None:
+            centerOfMass = ImageProcessor.get_contours_centroid(contour)
+        else:
+            centerOfMass= None
         return contour, centerOfMass
             
 

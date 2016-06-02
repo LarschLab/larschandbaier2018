@@ -266,6 +266,16 @@ def get_biggest_n_contours(contours, n):
     contours = sorted(contours, key=get_area, reverse=True)
     return contours[:n]
 
+def get_contour_containing_point(contours, point):
+    newContours=[]
+    for c in contours:
+        #consider convex hull of each contour because with fish that are bent, center of mass may by outside of animal.
+        hull = cv2.convexHull(c,returnPoints = True)
+        dist = cv2.pointPolygonTest(hull,(point.x,point.y),False)
+        if dist==1:
+            newContours.append(c)
+            return newContours
+    return None
 
 def get_area(c):
     return cv2.contourArea(c)
