@@ -10,6 +10,7 @@ import cv2
 import geometry
 import ImageProcessor
 import matplotlib.pyplot as plt
+import splineTest
 
 class AnimalShapeParameters(object):
     #obtain descriptive shape parameters of animals
@@ -32,14 +33,15 @@ class AnimalShapeParameters(object):
     #   Skeleton:listOfPoints
     #       tailStraight-ness
 
-    def __init__(self,path,trajectory='none'):
+    def __init__(self,path,trajectory='none',frames=100):
         self.path=path
         self.trajectory=trajectory
         #self.expInfo=expInfo
         # region User variables
 
-        self.fish_orientation_elipse_all, self.frAll_rot=self.crawlVideo(path,trajectory)
-        
+        #self.fish_orientation_elipse_all, self.frAll_rot=self.crawlVideo(path,trajectory,frames)
+        self.fish_orientation_elipse_all,self.spineAngles,self.frAll_rot=self.crawlVideo(path,trajectory,frames)
+
     def cropAnimal(self,fullFrame,xy_point,cropSize=200):
         #crop full Frame around animal
         
@@ -59,16 +61,17 @@ class AnimalShapeParameters(object):
         return img_gray
         
     #process sub region around fish
-    def crawlVideo(self,path,trajectory='none'):
-        
+    def crawlVideo(self,path,trajectory='none',nframes=100):
+        self.skel_smooth_all=[]
         threshold_elipse = 185
-        
+        threshold_skeleton=240
         video = cv2.VideoCapture(path)
-        nframes=4000
-        fish_orientation_elipse_all=np.nan(nframes)
+        fish_orientation_elipse_all=np.zeros(nframes)
         frAll_rot=[]
-        
+        sping_angles_all=[]
         for i in range(nframes):
+            if np.mod(i,100)==0:
+                print i,"         \r",
              # Get the frame
             video.set(cv2.CAP_PROP_POS_FRAMES,i)
             ret, img_frame_original = video.read()
@@ -127,17 +130,41 @@ class AnimalShapeParameters(object):
             
             #generate rotation cancelled image
             #translate center of mass to image center
-              
+            #mask away everything other than current animal
+                contour_skel, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_skeleton)
+                
+                mask = np.ones(img_crop.shape[:2], dtype="uint8") * 0
+                #print contour_fish_dark
+                cv2.drawContours(mask, contour_skel, -1, 255, -1)
+                
+                img_masked=255-cv2.bitwise_and(255-img_crop.copy(),255-img_crop.copy(),mask=mask)
+                
                 M_trans = np.float32([[1,0,50-centerOfMass[0]],[0,1,50-centerOfMass[1]]])
-                img_trans = cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
+                img_trans = 255-cv2.warpAffine(255-img_masked,M_trans,img_crop.shape)
                 
                 M_rot = cv2.getRotationMatrix2D((50,50),fish_orientation_elipse,1)
                 img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
+                img_rot_binary=ImageProcessor.to_binary(img_rot.copy(), threshold_skeleton)
+                skel_angles,skel_smooth,skel=splineTest.return_skeleton(img_rot_binary)                  
+                print i
+                if i==133:
+                    plt.figure()
+                    plt.imshow(img_rot_binary)  
+                    plt.figure()
+                    plt.imshow(skel)
+                    plt.figure() 
+
+                sping_angles_all.append(skel_angles)
+                if skel_smooth is not None:
+                    skel_smooth=np.roll(skel_smooth,1,axis=1)
+                    cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
             else:
-                
+                fish_orientation_elipse_all[i]=np.nan
+                #img_rot = img_crop*0
             
-            frAll_rot.append(img_rot)
-        return fish_orientation_elipse_all, frAll_rot
+            frAll_rot.append(img_rot_binary)
+            self.skel_smooth_all.append(skel_smooth)
+        return fish_orientation_elipse_all, sping_angles_all,frAll_rot
             
 
     def get_tail_tip_polygon(self,contour,epsilonFactor=0.02):         

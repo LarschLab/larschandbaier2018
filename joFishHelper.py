@@ -165,6 +165,11 @@ class Pair(object):
         #self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
         
 def getRelativeNeighborPositions(position,heading):
+    if heading.ndim==3:
+        hd=heading[:,:,0].copy()
+    elif heading.ndim==2:
+        hd=heading[:,:].copy()
+        
     pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
     
     relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2. (where animal 2 has a neighbor)
@@ -175,8 +180,8 @@ def getRelativeNeighborPositions(position,heading):
     relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
     relPosPolRot=relPosPol.copy()
     #rotate 
-    relPosPolRot[:,0,0]=relPosPol[:,0,0]-(heading[:,1,0])
-    relPosPolRot[:,1,0]=relPosPol[:,1,0]-(heading[:,0,0])
+    relPosPolRot[:,0,0]=relPosPol[:,0,0]-(hd[:,1])
+    relPosPolRot[:,1,0]=relPosPol[:,1,0]-(hd[:,0])
     relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
     relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
     
@@ -224,6 +229,7 @@ def getShoalDwellTimes(IAD):
         LowDwell=LowToHigh[0:maxL]-HighToLow[0:maxL]
 
     return HiDwell,LowDwell,HighToLow,LowToHigh
+
 
 
 def distanceTimeSeries(X):
@@ -277,7 +283,12 @@ class xy_point(object):
         self.x=coordinates[0]
         self.y=coordinates[1]
 
-       
+def leadership(PosMat):
+    front=np.sum(np.sum(PosMat[:31,:,:],axis=1),axis=0)
+    back =np.sum(np.sum(PosMat[32:,:,:],axis=1),axis=0)
+    LeadershipIndex=(front-back)/(front+back)
+    return LeadershipIndex
+        
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
     def __init__(self,path):
@@ -409,12 +420,10 @@ class experiment(object):
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         
+        #LEADERSHIP
         plt.subplot(4,4,15)
         plt.cla()
-        PosMat=self.Pair.neighborMat
-        front=np.sum(np.sum(PosMat[:31,:,:],axis=1),axis=0)
-        back =np.sum(np.sum(PosMat[32:,:,:],axis=1),axis=0)
-        self.LeadershipIndex=(front-back)/(front+back)
+        self.LeadershipIndex=leadership(self.Pair.neighborMat)
         x=[1,2]
         barlist=plt.bar(x,self.LeadershipIndex, width=0.5,color='b')
         barlist[1].set_color('r')

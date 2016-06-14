@@ -163,7 +163,7 @@ class Vector(object):
 
         product = self.inner(other)
         cos_angle = product.__div__(self.norm() * other.norm())
-        if cos_angle>1:
+        if cos_angle>1 or cos_angle<-1:
             angle=np.nan
         else:
             angle = math.acos(cos_angle)
@@ -257,6 +257,9 @@ class Vector(object):
     def __repr__(self):
         return str(self.values)
 
-
+def smallest_angle_difference_degrees(x,y):
+    diff=x-y
+    smallest_diff=np.mod(diff+180,360)-180
+    return smallest_diff
 
 
