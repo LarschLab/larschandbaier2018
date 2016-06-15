@@ -42,39 +42,57 @@ class AnimalShapeParameters(object):
         #self.fish_orientation_elipse_all, self.frAll_rot=self.crawlVideo(path,trajectory,frames)
         self.fish_orientation_elipse_all,self.spineAngles,self.frAll_rot=self.crawlVideo(path,trajectory,frames)
 
-    def cropAnimal(self,fullFrame,xy_point,cropSize=200):
+    def cropAnimal(self,fullFrame,xy_point,cropSize=300):
         #crop full Frame around animal
         
-        region_of_interest = geometry.Region(cropSize, cropSize, geometry.Vector(50, 50))
+        img_input=np.zeros((cropSize,cropSize),dtype='uint8')
+        frame_size=fullFrame.shape
+        region_of_interest = geometry.Region(cropSize, cropSize, geometry.Vector(150, 150))
         region_of_interest.reposition_around_center(xy_point)
+    
+        xmin=np.max([cropSize/2-xy_point.x,0]) 
+        xmax=np.min([(frame_size[0]-xy_point.x+cropSize/2),cropSize])
+        ymin=np.max([cropSize/2-xy_point.y,0]) 
+        ymax=np.min([(frame_size[1]-xy_point.y+cropSize/2),cropSize])
+        
+        xminget=np.max([xy_point.x-cropSize/2,0])
+        xmaxget=np.min([cropSize/2+xy_point.x,frame_size[0]])
+        yminget=np.max([xy_point.y-cropSize/2,0])
+        ymaxget=np.min([cropSize/2+xy_point.y,frame_size[1]])
         
         # Clip the frame according to the region of interest
-        img_frame_original = fullFrame[region_of_interest.top_left.y:region_of_interest.bottom_right.y,
-                             region_of_interest.top_left.x:region_of_interest.bottom_right.x]
-
-        # copy the clipped frame to keep it away from processing
-        img_input = img_frame_original.copy()
+#        img_frame_original = fullFrame[region_of_interest.top_left.y:region_of_interest.bottom_right.y,
+#                             region_of_interest.top_left.x:region_of_interest.bottom_right.x]
+        img_frame_original = fullFrame[yminget:ymaxget,xminget:xmaxget]
+        try:
+            img_input[ymin:ymax,xmin:xmax] = img_frame_original
+        except:
+            print xmin
     
         # change the input image into grayscal (gray)
-        img_gray = cv2.cvtColor(img_input, cv2.COLOR_BGR2GRAY)
+        #img_gray = cv2.cvtColor(img_input, cv2.COLOR_BGR2GRAY)
         
-        return img_gray
+        return img_input
         
     #process sub region around fish
     def crawlVideo(self,path,trajectory='none',nframes=100):
-        self.skel_smooth_all=[]
+        self.skel_smooth_all=np.zeros((nframes,30,2))
+        sping_angles_all=np.zeros((nframes,29))
+        self.centroidContour=np.zeros((nframes,2))
+        frAll_rot=np.zeros((300,300,nframes),dtype='uint8')
+        
         threshold_elipse = 185
         threshold_skeleton=240
         video = cv2.VideoCapture(path)
         fish_orientation_elipse_all=np.zeros(nframes)
-        frAll_rot=[]
-        sping_angles_all=[]
+        
         for i in range(nframes):
             if np.mod(i,100)==0:
                 print i,"         \r",
              # Get the frame
             video.set(cv2.CAP_PROP_POS_FRAMES,i)
             ret, img_frame_original = video.read()
+            img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
             
             if trajectory !='none':
                 currCenter=geometry.Vector(*trajectory[i,:])
@@ -97,13 +115,11 @@ class AnimalShapeParameters(object):
             
             # find robust 0-180 major axis orientation
             # use a low threshold contour that includes the rigid fish body but not the flexible tail
-            try:
-                contour_fish_dark, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_elipse)
-            
-            except:
-                plt.imshow(img_crop)
-                print i
-                1/0
+
+            contour_fish_dark, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_elipse)
+            contour_fish_skel, centerOfMass_skel = self.get_fish_contour(img_crop.copy(),threshold_skeleton)    
+            self.centroidContour[i,:]=np.add(trajectory[i,:],np.subtract([centerOfMass_skel.x,centerOfMass_skel.y],[151,149]))
+                
 
             if contour_fish_dark is not None:            
                 fish_orientation_elipse = self.get_fish_ellipse_angle(contour_fish_dark)
@@ -131,39 +147,50 @@ class AnimalShapeParameters(object):
             #generate rotation cancelled image
             #translate center of mass to image center
             #mask away everything other than current animal
-                contour_skel, centerOfMass = self.get_fish_contour(img_crop.copy(),threshold_skeleton)
+            
+                M_trans = np.float32([[1,0,150-centerOfMass[0]],[0,1,150-centerOfMass[1]]])
+                animalCenter=geometry.Vector(150,150)
+                img_trans = 255-cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
+                
+                M_rot = cv2.getRotationMatrix2D((150,150),fish_orientation_elipse,1)
+                img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
+                
+                
+                contour_skel, centerOfMass = self.get_fish_contour(img_rot.copy(),threshold_skeleton,animalCenter)
                 
                 mask = np.ones(img_crop.shape[:2], dtype="uint8") * 0
                 #print contour_fish_dark
                 cv2.drawContours(mask, contour_skel, -1, 255, -1)
                 
-                img_masked=255-cv2.bitwise_and(255-img_crop.copy(),255-img_crop.copy(),mask=mask)
+                #img_masked=255-cv2.bitwise_and(255-img_crop.copy(),255-img_crop.copy(),mask=mask)
+                img_masked=255-mask
+
+                img_rot_binary=ImageProcessor.to_binary(img_masked.copy(), threshold_skeleton)
                 
-                M_trans = np.float32([[1,0,50-centerOfMass[0]],[0,1,50-centerOfMass[1]]])
-                img_trans = 255-cv2.warpAffine(255-img_masked,M_trans,img_crop.shape)
-                
-                M_rot = cv2.getRotationMatrix2D((50,50),fish_orientation_elipse,1)
-                img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
-                img_rot_binary=ImageProcessor.to_binary(img_rot.copy(), threshold_skeleton)
                 skel_angles,skel_smooth,skel=splineTest.return_skeleton(img_rot_binary)                  
                 print i
-                if i==133:
+                if i==-1:
+                    #plt.figure()
+                    #plt.imshow(mask)  
+                    #plt.figure()
+                    #plt.imshow(img_masked)  
                     plt.figure()
                     plt.imshow(img_rot_binary)  
                     plt.figure()
                     plt.imshow(skel)
                     plt.figure() 
 
-                sping_angles_all.append(skel_angles)
+                sping_angles_all[i,:]=skel_angles
                 if skel_smooth is not None:
                     skel_smooth=np.roll(skel_smooth,1,axis=1)
                     cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
             else:
                 fish_orientation_elipse_all[i]=np.nan
                 #img_rot = img_crop*0
-            
-            frAll_rot.append(img_rot_binary)
-            self.skel_smooth_all.append(skel_smooth)
+            if i==452:
+                print i
+            frAll_rot[:,:,i]=img_rot_binary
+            self.skel_smooth_all[i,:,:]=skel_smooth
         return fish_orientation_elipse_all, sping_angles_all,frAll_rot
             
 
@@ -216,13 +243,16 @@ class AnimalShapeParameters(object):
         ori_mom_degrees=np.degrees(ori_mom)     
         return ori_mom_degrees
         
-    def get_fish_contour(self,img,threshold):
+    def get_fish_contour(self,img,threshold,animalCenter=None):
         img_binary = ImageProcessor.to_binary(img.copy(), threshold)            
         im_tmp2,contours, hierarchy = cv2.findContours(img_binary.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         #only keep contour containing the trajectory coordinate
         #this would be the center of the cropped input image
-        img_center=geometry.Vector(img.shape[0]/2,img.shape[1]/2)
-        contour = ImageProcessor.get_contour_containing_point(contours,img_center)
+        if animalCenter==None:
+            img_center=geometry.Vector(img.shape[0]/2,img.shape[1]/2)
+            animalCenter=img_center
+            
+        contour = ImageProcessor.get_contour_containing_point(contours,animalCenter)
         
         #contour = ImageProcessor.get_biggest_n_contours(contours, 1)
         if contour is not None:

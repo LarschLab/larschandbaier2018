@@ -29,16 +29,34 @@ def return_skeleton(img_binary):
         skel_angles=np.zeros(29).tolist()
     return skel_angles, skel_smooth,skel
     
-def get_skeleton_list(skel,number_points):
-    skel_list=np.where(skel>0)
-    points=np.c_[skel_list[0],skel_list[1]]
-    ep=findEndpoints(skel)
+def get_skeleton_list(skel,number_points,x_offset=0):
+    #get skeleton pixel coordinates and fit a smooth spline to it
+    #coordinates need to be sorted along the skeleton
+    #sorting via shortest path through nearest neighbor graph
+
+    #x_offset allows cropping the skeleton to omit parts of it for fitting
+    #currently shifting to the contour centroid.
+    #this circumvents the problem of skeleton branching in the head.
+    #This only makes sense if the animal is already rotated to face left.
+
+    skel_list=np.where(skel[:,x_offset:]>0)
+    points=np.c_[skel_list[0],skel_list[1]+x_offset]
+    ep=findEndpoints(skel[:,x_offset:])
+    
+    #correct endpoints for offset to match original skeleton
+    for i in range(np.shape(ep)[0]):
+        ep[i][1]=ep[i][1]+x_offset
+    
+    #create graph G of 2 nearest neighbors for each point.    
+    G=NN_graph(points)   
+     
+#------alternative strategy to fill the graph-------- not working yet
 #    clf = NearestNeighbors(2).fit(points,2)
 #    G = clf.kneighbors_graph()
 #    T = nx.from_scipy_sparse_matrix(G)
     
-    G=NN_graph(points)
-    plt.imshow(skel)
+    #try to find shortest path through the graph from one end-point to the other
+    #then fit a b-spline to the sorted list and return a list of interpolated points on that fit.
     try:
         sp=nx.shortest_path(G,source=(ep[0][0],ep[0][1]),target=(ep[1][0],ep[1][1]))
         spa=np.array(sp)
@@ -57,16 +75,8 @@ def get_skeleton_list(skel,number_points):
         #print points
         print 'edges'
         print G.edges()
-        
-        #sp=nx.shortest_path(G,source=(ep[1][0],ep[1][1]),target=(ep[0][0],ep[0][1]))
         return None, None
 
-    
-#plt.figure()
-#data,=pylab.plot(x,y,'bo-',label='data')
-#fit,=pylab.plot(xnew,ynew,'ro-',label='fit')
-#pylab.xlabel('x')
-#pylab.ylabel('y')
 
 def NN_graph(points):
     G = nx.Graph()  # A graph to hold the nearest neighbours
@@ -75,8 +85,6 @@ def NN_graph(points):
     #for p in xyl[1:-1]:  # Skip first and last items in list
     for p in xyl:
         dist, ind = tree.query(np.reshape(p,(1,-1)), k=3)
-
-    
         # ind Indexes represent nodes on a graph
         # Two nearest points are at indexes 1 and 2. 
         # Use these to form edges on graph
@@ -90,8 +98,11 @@ def NN_graph(points):
     
 
 def findEndpoints(img_skel):
+    #finding endpoints in a binary skeleton image by looking at pixels with only one neighbor.
     endPoints=[]
     sb_list=np.where(img_skel>0)
+    
+    #looking inside the 9 pixel squares centered on each point skeleton point
     for i in range(np.shape(sb_list)[1]):
         xmin=np.max([0,sb_list[0][i]-1])
         xmax=np.min([sb_list[0][i]+2,img_skel.shape[0]])

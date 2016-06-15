@@ -35,18 +35,23 @@ else:
     
 #    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],t.shape[0])
 #    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],t.shape[0])
-    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],200)
-    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],200)
+    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],500)
+    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],500)
     
+    #distance between centroids
+    #use as mask to flag collisions
+    animal_dif=asp1.centroidContour - asp2.centroidContour
+    dist=np.sqrt(animal_dif[:,0]**2 + animal_dif[:,1]**2)
+    collision_frames=dist<1
     
-    
-    mr=np.concatenate((np.array(asp1.frAll_rot),np.array(asp2.frAll_rot)),axis=1)
+    mr=np.transpose(np.concatenate((np.array(asp1.frAll_rot),np.array(asp2.frAll_rot)),axis=1),[2,0,1])
     
     
     imsave(rotVideoPath, mr)
     
     ang2=np.array(asp2.spineAngles)
     ang3=np.mod(ang2,180).T
+    ang3[:,collision_frames]=np.nan
     plt.imshow(ang3)
     
     #for i in ang3.shape[1]:
@@ -63,6 +68,7 @@ for i in range(allDist.shape[1]):
             allDist[j,i]=distance_point_line(asp2.skel_smooth_all[i][j],asp2.skel_smooth_all[i][0],asp2.skel_smooth_all[i][-1])
         except:
             allDist[j,1]=np.nan
+allDist[:,collision_frames]=np.nan
 plt.figure()
 plt.imshow(allDist)
 plt.figure()
@@ -70,6 +76,8 @@ plt.plot(np.nanmean(allDist,axis=0),'o-')
     
 a=asp1.fish_orientation_elipse_all
 b=asp2.fish_orientation_elipse_all
+a[collision_frames]=np.nan
+b[collision_frames]=np.nan
 contour_orientation = np.array([a, b]).T
 contour_orientation_rad=np.deg2rad(contour_orientation-180)
 #np.savetxt(csvPath,contour_orientation)
@@ -144,3 +152,5 @@ plt.figure()
 plt.plot(np.abs(d_orientation_b))
 xxx=detect_peaks(np.abs(d_orientation_b[:1000]),5,8)
 plt.plot(xxx,np.abs(d_orientation_b)[xxx],'o')
+plt.figure()
+plt.plot(np.mod(np.abs(d_orientation_b),180))
