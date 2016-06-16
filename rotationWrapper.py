@@ -17,6 +17,7 @@ from scipy import stats
 from scipy import signal
 import ImageProcessor
 import matplotlib.pyplot as plt
+import peakdet
 
 
 import random
@@ -35,27 +36,57 @@ else:
     
 #    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],t.shape[0])
 #    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],t.shape[0])
-    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],500)
-    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],500)
+    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],10000)
+    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],10000)
     
+    a=asp1.fish_orientation_elipse_all
+    b=asp2.fish_orientation_elipse_all
+
     #distance between centroids
     #use as mask to flag collisions
     animal_dif=asp1.centroidContour - asp2.centroidContour
     dist=np.sqrt(animal_dif[:,0]**2 + animal_dif[:,1]**2)
     collision_frames=dist<1
     
-    mr=np.transpose(np.concatenate((np.array(asp1.frAll_rot),np.array(asp2.frAll_rot)),axis=1),[2,0,1])
+    a[collision_frames]=np.nan
+    b[collision_frames]=np.nan
+    
+    #compute delta heading as difference of heading to angle between centroids of the two animals
+    angle_centroid_connect=get_angle_list(asp1.centroidContour,asp2.centroidContour)
+    
+    #flip angles along x axis for consistent angle reference
+    acc_1to2=np.mod(180-angle_centroid_connect,360)
+    acc_2to1=np.mod(180+acc_1to2,360)
+    
+    #deviation of an1 from an2 centroid
+    an2_deviation=geometry.smallest_angle_difference_degrees(b,acc_2to1)  
+    an1_deviation=geometry.smallest_angle_difference_degrees(a,acc_1to2)
+    #mr=np.transpose(np.concatenate((np.array(asp1.frAll_rot),np.array(asp2.frAll_rot)),axis=1),[2,0,1])
+    
+    plt.figure()
+    n, bins, patches =plt.hist(an1_deviation,bins=range(-180,180,10), normed=1, histtype='step')
+    n, bins, patches =plt.hist(an2_deviation,bins=range(-180,180,10), normed=1, histtype='step')
     
     
-    imsave(rotVideoPath, mr)
+
+    #imsave(rotVideoPath, mr)
     
     ang2=np.array(asp2.spineAngles)
     ang3=np.mod(ang2,180).T
     ang3[:,collision_frames]=np.nan
-    plt.imshow(ang3)
     
-    #for i in ang3.shape[1]:
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(ang3)
+    ax.set_aspect('auto')
         
+def get_angle_list(a,b):
+    angle_list=np.zeros(a.shape[0])
+    for i in range(a.shape[0]):
+        p1=geometry.Vector(*a[i,:])
+        p2=geometry.Vector(*b[i,:])
+        angle_list[i]=geometry.Vector.get_angle(p1,p2)
+    return angle_list   
         
 def distance_point_line(p,l1,l2):
     distance=np.abs((l2[1]-l1[1])*p[0]-(l2[0]-l1[0])*p[1]+l2[0]*l1[1]-l2[1]*l1[0])/np.sqrt((l2[1]-l1[1])**2+(l2[0]-l1[0])**2)
@@ -69,17 +100,28 @@ for i in range(allDist.shape[1]):
         except:
             allDist[j,1]=np.nan
 allDist[:,collision_frames]=np.nan
-plt.figure()
-plt.imshow(allDist)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.imshow(allDist)
+ax.set_aspect('auto')
+
+
+
 plt.figure()
 plt.plot(np.nanmean(allDist,axis=0),'o-')
+
+#detect bouts
+
+bout_start=peakdet.detect_peaks(np.abs(d_orientation_b[:1000]),5,8)
+
+plt.plot(xxx,np.abs(d_orientation_b)[xxx],'o')
+plt.figure()
+plt.plot(np.mod(np.abs(d_orientation_b),180))
     
-a=asp1.fish_orientation_elipse_all
-b=asp2.fish_orientation_elipse_all
-a[collision_frames]=np.nan
-b[collision_frames]=np.nan
-contour_orientation = np.array([a, b]).T
-contour_orientation_rad=np.deg2rad(contour_orientation-180)
+
+#contour_orientation = np.array([a, b]).T
+#contour_orientation_rad=np.deg2rad(contour_orientation-180)
 #np.savetxt(csvPath,contour_orientation)
 #    
 angle_diff=geometry.smallest_angle_difference_degrees(a,b)
@@ -150,7 +192,7 @@ d_orientation_a=np.diff(a)
 d_orientation_b=np.diff(b)
 plt.figure()
 plt.plot(np.abs(d_orientation_b))
-xxx=detect_peaks(np.abs(d_orientation_b[:1000]),5,8)
-plt.plot(xxx,np.abs(d_orientation_b)[xxx],'o')
-plt.figure()
-plt.plot(np.mod(np.abs(d_orientation_b),180))
+
+
+
+

@@ -40,7 +40,7 @@ class AnimalShapeParameters(object):
         # region User variables
 
         #self.fish_orientation_elipse_all, self.frAll_rot=self.crawlVideo(path,trajectory,frames)
-        self.fish_orientation_elipse_all,self.spineAngles,self.frAll_rot=self.crawlVideo(path,trajectory,frames)
+        self.fish_orientation_elipse_all,self.spineAngles=self.crawlVideo(path,trajectory,frames)
 
     def cropAnimal(self,fullFrame,xy_point,cropSize=300):
         #crop full Frame around animal
@@ -79,7 +79,7 @@ class AnimalShapeParameters(object):
         self.skel_smooth_all=np.zeros((nframes,30,2))
         sping_angles_all=np.zeros((nframes,29))
         self.centroidContour=np.zeros((nframes,2))
-        frAll_rot=np.zeros((300,300,nframes),dtype='uint8')
+        self.frAll_rot=np.zeros((300,300,nframes),dtype='uint8')
         
         threshold_elipse = 185
         threshold_skeleton=240
@@ -167,7 +167,7 @@ class AnimalShapeParameters(object):
 
                 img_rot_binary=ImageProcessor.to_binary(img_masked.copy(), threshold_skeleton)
                 
-                skel_angles,skel_smooth,skel=splineTest.return_skeleton(img_rot_binary)                  
+                skel_angles,skel_smooth,skel,ep=splineTest.return_skeleton(img_rot_binary)                  
                 print i
                 if i==-1:
                     #plt.figure()
@@ -189,9 +189,9 @@ class AnimalShapeParameters(object):
                 #img_rot = img_crop*0
             if i==452:
                 print i
-            frAll_rot[:,:,i]=img_rot_binary
+            #self.frAll_rot[:,:,i]=img_rot_binary
             self.skel_smooth_all[i,:,:]=skel_smooth
-        return fish_orientation_elipse_all, sping_angles_all,frAll_rot
+        return fish_orientation_elipse_all, sping_angles_all
             
 
     def get_tail_tip_polygon(self,contour,epsilonFactor=0.02):         

@@ -19,15 +19,14 @@ import matplotlib.pyplot as plt
 def return_skeleton(img_binary):
 #skeletonize image and return an ordered list that represents the shortest path through the skeleton points
 #this is going to be trouble when there is significant branching
-    #img_bin_crop=img_binary[70:130,70:130]
     img_bin_crop=img_binary
     skel=ImageProcessor.to_skeleton(img_bin_crop)
-    skel_smooth,skel_list=get_skeleton_list(skel,30)
+    skel_smooth,skel_list, ep=get_skeleton_list(skel,30,150)
     if skel_smooth is not None:
         skel_angles=get_line_angles(skel_smooth)
     else:
         skel_angles=np.zeros(29).tolist()
-    return skel_angles, skel_smooth,skel
+    return skel_angles, skel_smooth,skel, ep
     
 def get_skeleton_list(skel,number_points,x_offset=0):
     #get skeleton pixel coordinates and fit a smooth spline to it
@@ -45,7 +44,7 @@ def get_skeleton_list(skel,number_points,x_offset=0):
     
     #correct endpoints for offset to match original skeleton
     for i in range(np.shape(ep)[0]):
-        ep[i][1]=ep[i][1]+x_offset
+        ep[i,1]=ep[i,1]+x_offset
     
     #create graph G of 2 nearest neighbors for each point.    
     G=NN_graph(points)   
@@ -58,7 +57,7 @@ def get_skeleton_list(skel,number_points,x_offset=0):
     #try to find shortest path through the graph from one end-point to the other
     #then fit a b-spline to the sorted list and return a list of interpolated points on that fit.
     try:
-        sp=nx.shortest_path(G,source=(ep[0][0],ep[0][1]),target=(ep[1][0],ep[1][1]))
+        sp=nx.shortest_path(G,source=(ep[0,0],ep[0,1]),target=(ep[1,0],ep[1,1]))
         spa=np.array(sp)
         x=spa[:,0]
         y=spa[:,1]
@@ -67,7 +66,7 @@ def get_skeleton_list(skel,number_points,x_offset=0):
         nest=-1
         tckp,u=interpolate.splprep([x,y],s=s,k=k,nest=nest)
         xnew,ynew=interpolate.splev(np.linspace(0,1,number_points),tckp)
-        return np.c_[xnew,ynew], spa
+        return np.c_[xnew,ynew], spa, ep
     except:
         print 'endpoints'
         print ep
@@ -75,7 +74,7 @@ def get_skeleton_list(skel,number_points,x_offset=0):
         #print points
         print 'edges'
         print G.edges()
-        return None, None
+        return None, None, None
 
 
 def NN_graph(points):
@@ -112,26 +111,13 @@ def findEndpoints(img_skel):
         nn=np.sum(n>0)
         if nn<3:
             endPoints.append([sb_list[0][i],sb_list[1][i]])
+    #sort endPoints by x-position
+    endPoints=np.array(endPoints)
+    endPoints=endPoints[endPoints[:,1].argsort()]
     return endPoints
         
-def get_contour_inner_angles(points):
-    #for each point, get angle of vectors pointing away from point towards neighbors
-    contour=points[1:-1]
-    contour_roll_forward=points[2:]
-    contour_roll_backward=points[:-2]
-    vectors_forward=contour_roll_forward-contour
-    vectors_backward=contour_roll_backward-contour
-    contour_angles=[]
-    #calculate polygon angles
-    #angle between lines defined by 3 adjacent polygon points
-    for j in range(contour.shape[0]):
-        v1=geometry.Vector(*vectors_backward[j])
-        v2=geometry.Vector(*vectors_forward[j])                    
-        contour_angles.append(v1.get_angleb(v2))
-        #contour_angles.append(geometry.Vector.get_angle(v1,v2))
-    return contour_angles    
-
 def get_line_angles(points):
+    #angle between adjacent points in a list
     points_base=points[:-1]
     points_fwd=points[1:]
     line_angles=[]
