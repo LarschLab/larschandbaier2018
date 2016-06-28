@@ -9,12 +9,15 @@ import numpy as np
 def cart2pol(x, y):
     theta = np.arctan2(y, x)
     rho = np.hypot(x, y)
-    return np.array([theta, rho])
+    return theta, rho
     
 def pol2cart(theta, rho):
     x = rho * np.cos(theta)
     y = rho * np.sin(theta)
-    return np.array([x, y])
+    return x, y
     
 def runningMean(x, N):
     return np.convolve(x, np.ones((N,))/N,mode='valid')[(N-1):]
+
+def distance(x,y):
+    return np.sqrt(x**2 + y**2)

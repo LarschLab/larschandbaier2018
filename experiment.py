@@ -51,199 +51,195 @@ class ExperimentMeta(object):
             self.AnSizeFilePath = AnSizeFilePath
         
         self.dataPath = os.path.join(head,'analysisData.mat')
+
+class Trajectory(object):
+    def __init__(self,xy):
+        self.xy=xy
         
-def getVideoProperties(aviPath):
-    #read video metadata via ffprobe and parse output
-    #can't use openCV because it reports tbr instead of fps (frames per second)
-    cmnd = ['c:/ffmpeg/bin/ffprobe', '-show_format', '-show_streams', '-pretty', '-loglevel', 'quiet', aviPath]
-    p = subprocess.Popen(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err =  p.communicate()
-    decoder_configuration = {}
-    for line in out.splitlines():
-        if '=' in line:
-            key, value = line.split('=')
-            decoder_configuration[key] = value
+    def x(self):
+        return self.xy[:,0]
     
-    #frame rate needs special treatment. calculate from parsed str argument        
-    nominator,denominator=decoder_configuration['avg_frame_rate'].split('/')
-    decoder_configuration['fps']=int(float(nominator) / float(denominator))
-    return decoder_configuration
-    
-
-def getMedVideo(aviPath,FramesToAvg,saveFile):
-    cap = cv2.VideoCapture(aviPath)
-    head, tail = os.path.split(aviPath)
-    vp=getVideoProperties(aviPath)
-    videoDims = tuple([int(vp['width']) , int(vp['height'])])
-    print videoDims
-    #numFrames=int(vp['nb_frames'])
-    numFrames=50000
-    img1=cap.read()
-    img1=cap.read()
-    img1=cap.read()
-    img1=cap.read()
-    gray = cv2.cvtColor(img1[1], cv2.COLOR_BGR2GRAY)
-    allMed=gray.copy()
-    for i in range(10,numFrames-2,np.round(numFrames/FramesToAvg)): #use FramesToAvg images to calculate median
-        cap.set(cv2.CAP_PROP_POS_FRAMES,i)
-        image=cap.read()
-        print i
-        gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
-        allMed=np.dstack((allMed,gray))
+    def y(self):
+        return self.xy[:,1]
         
-    vidMed=np.median(allMed,axis=2)
-
-    if saveFile:
-        ImOutFile=(head+'/bgMed.tif')
-        cv2.imwrite(ImOutFile,vidMed)
-        return 1
-    else:
-        return vidMed
-
+       
+class Animal(object):
+    def __init__(self,ID,trajectory,expInfo):
+        self.expInfo=expInfo
+        self.ID=ID
+        self.position=Trajectory()
+        self.positionPol=Trajectory() #x= theta, y=rho
+        self.d_position=Trajectory()
+        self.dd_position=Trajectory()
+        self.travel=np.array([])
+        self.totalTravel=np.array([])
+        self.speed=np.array([])
+        self.accel=np.array([])
+        self.heading=np.array([])
+        self.d_heading=np.array([])
+        
+        self.position.xy=trajectory
+        
+        self.update_trajectory_transforms()
+        
+        self.get_outward_venture()
+        
+        
+        #how far did the animal go out towards center?
+        #this can be used to determine upper/lower animal in stacks
+    
+    def update_trajectory_transforms(self):
+        posPol=[mu.cart2pol(*self.position.xy.T)]
+        self.positionPol.xy=np.squeeze(np.array(posPol).T)
+        
+        #change in position for x and y
+        self.d_position.xy =np.diff(self.position.xy,axis=0)
+        
+        self.dd_position.xy =np.diff(self.d_position.xy,axis=0)
+        
+        #travel distance (cartesian displacement)
+        self.travel=mu.distance(*self.d_position.xy.T)
+        
+        #tavel speed
+        self.speed=self.travel*self.expInfo.fps
+        self.totalTravel=np.nansum(np.abs(self.travel))
+        
+        #travel acceleration
+        self.accel=np.diff(self.speed)
+        self.heading=mu.cart2pol(*self.d_position.xy.T)[0] #heading[0] = heading, heading[1] = speed
+        #heading: pointing right = 0, pointung up = pi/2      
+        self.d_heading=np.diff(self.heading)
+    
+    def get_outward_venture(self):
+        #distance from center
+        histData=self.positionPol.y()
+        maxCenterDistance=np.max(histData)
+        histBins=np.linspace(0,maxCenterDistance,100)   
+        self.PolhistBins=histBins
+        
+        self.Pol_n =np.histogram(histData[~np.isnan(histData)],bins=histBins,normed=1)[0]
 
 class Pair(object):
     #Class for trajectories of one pair of animals.
     #Calculation and storage of dependent time series: speed, heading, etc.
     def __init__(self, trajectories, expInfo):
-        self.positionPx=trajectories
-        maxPixel=np.nanmax(self.positionPx,0)
-        minPixel=np.nanmin(self.positionPx,0)
-        expInfo.trajectoryDiameterPx=np.mean(maxPixel-minPixel)
-        #expInfo.pxPmm=expInfo.trajectoryDiameterPx/expInfo.arenaDiameter_mm
-        expInfo.pxPmm=8.6
-        expInfo.arenaCenterPx=np.mean(maxPixel-(expInfo.trajectoryDiameterPx/2),axis=0)
         
-        self.position=(self.positionPx-expInfo.arenaCenterPx) / expInfo.pxPmm
+        self.animals=Animal(trajectories[:,0,:],1,expInfo)
+        self.animals.append(Animal(trajectories[:,1,:],2,expInfo))
         
-        #distance from center
-        self.positionPol=np.transpose(mu.cart2pol(self.position[:,:,0],self.position[:,:,1]),[1,2,0])  
-        maxCenterDistance=np.max(self.positionPol[:,:,1])
-        histBins=np.linspace(0,maxCenterDistance,100)   
-        self.PolhistBins=histBins
-        self.Pol_n=np.zeros([99,2])
-        histData=self.positionPol[:,0,1]
-        self.Pol_n[:,0],bins =np.histogram(histData[~np.isnan(histData)],bins=histBins,normed=1)
-        histData=self.positionPol[:,1,1]
-        self.Pol_n[:,1],bins =np.histogram(histData[~np.isnan(histData)],bins=histBins,normed=1)
-        if self.Pol_n[-2,0]==0: #second last bin of animal0 is empty, meaning animal1 went out further ->was on top
+
+        
+    def get_stack_order(self):
+        out_venture_all=[x.Pol_n for x in self.animals]
+        #figure out who is on top. Animal in top arena can go outwards further
+        if out_venture_all[-2,0]==0: #second last bin of animal0 is empty, meaning animal1 went out further ->was on top
             self.StackTopAnimal=np.array([0,1])
-        elif self.Pol_n[-2,1]==0:
+        elif out_venture_all[-2,1]==0:
             self.StackTopAnimal=np.array([1,0])
         else: #no animal went out more than one bin further than the other -> likely no stack experiment
-            self.StackTopAnimal=np.array([0,0])       
+            self.StackTopAnimal=np.array([0,0])   
+            
         
-        #change in position for x and y
-        self.d_position=np.diff(self.position,axis=0)
-        self.dd_position=np.diff(self.d_position,axis=0)
-        
-        #travel distance (cartesian displacement)
-        self.travel=np.sqrt(self.d_position[:,:,0]**2 + self.d_position[:,:,1]**2)
-        
-        #tavel speed
-        self.speed=self.travel*expInfo.fps
-        self.totalTravel=np.nansum(np.abs(self.travel),axis=0)
-        
-        #travel acceleration
-        self.accel=np.diff(self.speed,axis=0)
-        self.heading=np.transpose(mu.cart2pol(self.d_position[:,:,0],self.d_position[:,:,1]),[1,2,0]) #heading[0] = heading, heading[1] = speed
-        #heading: pointing right = 0, pointung up = pi/2      
-        self.d_heading=np.diff(self.heading[0],axis=0)
-        
+    def get_IAD(self):
+        dist=Trajectory()
+        dist.xy=self.animals[0].xy-self.animals(1).xy
+        self.IAD = np.sqrt(dist.x()**2 + dist.y()**2) 
+    
         #absolute inter animal distance IAD
         
-        dist=self.position[:,0,:]-self.position[:,1,:]
-        self.IAD = np.sqrt(dist[:,0]**2 + dist[:,1]**2)
         self.IAD_m=np.nanmean(self.IAD)
         histBins=np.arange(100)
-        self.IADhist,bins =np.histogram(self.IAD,bins=histBins,normed=1)
+        self.IADhist =np.histogram(self.IAD,bins=histBins,normed=1)[0]
         
         #relative distance between animals
-        self.neighborMat,self.relPosPolRotCart,self.relPos= getRelativeNeighborPositions(self.position,self.heading)
+        self.getRelativeNeighborPositions()
         
         #force map between animals
-        self.ForceMat = getNeighborForce(self.relPosPolRotCart,self.accel)
+        self.getNeighborForce()
         
         #self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
 
         
-def getRelativeNeighborPositions(position,heading):
-    if heading.ndim==3:
-        hd=heading[:,:,0].copy()
-    elif heading.ndim==2:
-        hd=heading[:,:].copy()
+    def getRelativeNeighborPositions(self):
         
-    pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
-    
-    relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2. (where animal 2 has a neighbor)
-    relPos2=pos[:,1,:]-pos[:,0,:]  
-    
-    relPos=np.transpose([relPos1,relPos2],[1,0,2])
-    
-    relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
-    relPosPolRot=relPosPol.copy()
-    #rotate 
-    relPosPolRot[:,0,0]=relPosPol[:,0,0]-(hd[:,1])
-    relPosPolRot[:,1,0]=relPosPol[:,1,0]-(hd[:,0])
-    relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
-    relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
-    
-    mapBins=np.arange(-31,32)
-    neighborMat=np.zeros([62,62,2])
-    #creates the neighbormat for animal 2 (where animal1 was)
-    #this map seems flipped both horizontally and vertically! vertical is corrected at plotting.
-    neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
-    #creates the neighbormat for animal 1 (where animal2 was)
-    neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
-    return neighborMat,relPosPolRotCart, relPos
-    
-def getNeighborForce(position,acceleration):
-    #position here should be transformed (rotated, relative). [:,0,:] is the position of 
-    mapBins=np.arange(-31,32)
-    force_t=np.zeros([62,62,2])
-    #animal 2 
-    force_t[:,:,1]=sta.binned_statistic_2d(position[1:,0,0],position[1:,0,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
-    #animal 1
-    force_t[:,:,0]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,0],bins=[mapBins,mapBins])[0]
-    return force_t
-
-def getShoalDwellTimes(IAD):
-    IADsm=mu.runningMean(IAD,30)
-    lowThreshold=np.nanmax(IADsm)/1.5
-    
-    lowIAD=(np.less(IAD,lowThreshold)).astype(int)
-    hiIAD=(np.greater(IAD,lowThreshold)).astype(int)
-    
-    #transitions from low to high inter animal distance and vice versa
-    LowToHigh=np.where(np.equal((hiIAD[:-1]-hiIAD[1:]),-1))[0]
-    HighToLow=np.where(np.equal((lowIAD[:-1]-lowIAD[1:]),-1))[0]
-    
-    #number of transitions to use below
-    maxL=np.min([np.shape(HighToLow)[0],np.shape(LowToHigh)[0]])-2
-    
-    #How long are High and low dwell times?
-    #calculate from transition times. Order depends on starting state of data
-    
-    if HighToLow[0]>LowToHigh[0]: #meaning starting low
-        HiDwell=HighToLow[0:maxL]-LowToHigh[0:maxL]
-        LowDwell=LowToHigh[1:maxL]-HighToLow[0:maxL-1]
-    else: #meaning starting high
-        HiDwell=HighToLow[1:maxL]-LowToHigh[0:maxL-1]
-        LowDwell=LowToHigh[0:maxL]-HighToLow[0:maxL]
-
-    return HiDwell,LowDwell,HighToLow,LowToHigh
-
-
-
-def distanceTimeSeries(X):
-    if ~('result' in locals()):
-        result=np.array([])
-    
-    result=np.append(result,abs(X[0]-X[1:]))
+            
+        pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
         
-    if np.shape(X)[0]>2:
-        result=np.append(result,distanceTimeSeries(X[1:]))
+        relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2. (where animal 2 has a neighbor)
+        relPos2=pos[:,1,:]-pos[:,0,:]  
+        
+        pos1=self.animals[0].position
+        pos2=self.animals[1].position
+        
+        relPos1=
+        
+        relPos=np.transpose([relPos1,relPos2],[1,0,2])
+        
+        relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
+        relPosPolRot=relPosPol.copy()
+        #rotate 
+        relPosPolRot[:,0,0]=relPosPol[:,0,0]-(hd[:,1])
+        relPosPolRot[:,1,0]=relPosPol[:,1,0]-(hd[:,0])
+        relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
+        relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
+        
+        mapBins=np.arange(-31,32)
+        neighborMat=np.zeros([62,62,2])
+        #creates the neighbormat for animal 2 (where animal1 was)
+        #this map seems flipped both horizontally and vertically! vertical is corrected at plotting.
+        neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
+        #creates the neighbormat for animal 1 (where animal2 was)
+        neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
+        return neighborMat,relPosPolRotCart, relPos
+    
+    def getNeighborForce(position,acceleration):
+        #position here should be transformed (rotated, relative). [:,0,:] is the position of 
+        mapBins=np.arange(-31,32)
+        force_t=np.zeros([62,62,2])
+        #animal 2 
+        force_t[:,:,1]=sta.binned_statistic_2d(position[1:,0,0],position[1:,0,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
+        #animal 1
+        force_t[:,:,0]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,0],bins=[mapBins,mapBins])[0]
+        return force_t
 
-    return result
+    def getShoalDwellTimes(IAD):
+        IADsm=mu.runningMean(IAD,30)
+        lowThreshold=np.nanmax(IADsm)/1.5
+        
+        lowIAD=(np.less(IAD,lowThreshold)).astype(int)
+        hiIAD=(np.greater(IAD,lowThreshold)).astype(int)
+        
+        #transitions from low to high inter animal distance and vice versa
+        LowToHigh=np.where(np.equal((hiIAD[:-1]-hiIAD[1:]),-1))[0]
+        HighToLow=np.where(np.equal((lowIAD[:-1]-lowIAD[1:]),-1))[0]
+        
+        #number of transitions to use below
+        maxL=np.min([np.shape(HighToLow)[0],np.shape(LowToHigh)[0]])-2
+        
+        #How long are High and low dwell times?
+        #calculate from transition times. Order depends on starting state of data
+        
+        if HighToLow[0]>LowToHigh[0]: #meaning starting low
+            HiDwell=HighToLow[0:maxL]-LowToHigh[0:maxL]
+            LowDwell=LowToHigh[1:maxL]-HighToLow[0:maxL-1]
+        else: #meaning starting high
+            HiDwell=HighToLow[1:maxL]-LowToHigh[0:maxL-1]
+            LowDwell=LowToHigh[0:maxL]-HighToLow[0:maxL]
+    
+        return HiDwell,LowDwell,HighToLow,LowToHigh
+
+
+
+    def distanceTimeSeries(X):
+        if ~('result' in locals()):
+            result=np.array([])
+        
+        result=np.append(result,abs(X[0]-X[1:]))
+            
+        if np.shape(X)[0]>2:
+            result=np.append(result,distanceTimeSeries(X[1:]))
+    
+        return result
 
 class shiftedPair(object):
     #Class to calculate null hypothesis time series using shifted pairs of animals
@@ -297,7 +293,7 @@ class experiment(object):
         self.expInfo=ExperimentMeta(path)
         self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
         mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
-        rawTra=mat['trajectories']
+        self.rawTra=mat['trajectories']
         #take out nan in the beginnin DONT do this for now, this would shift trace averages or require correction!
         nanInd=np.where(np.isnan(rawTra))
         if np.equal(np.shape(nanInd)[1],0) or np.greater(np.max(nanInd),1000):
@@ -307,11 +303,19 @@ class experiment(object):
         
         #rawTra=rawTra[LastNan:,:,:]
         self.skipNanInd=LastNan
-        self.rawTra=rawTra
+
+        maxPixel=np.nanmax(rawTra,0)
+        minPixel=np.nanmin(rawTra,0)
+        self.expInfo.trajectoryDiameterPx=np.mean(maxPixel-minPixel)
+        #expInfo.pxPmm=expInfo.trajectoryDiameterPx/expInfo.arenaDiameter_mm
+        self.expInfo.pxPmm=8.6
+        self.expInfo.arenaCenterPx=np.mean(maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
+        
+        position=(self.positionPx-self.expInfo.arenaCenterPx) / self.expInfo.pxPmm
         
         #proceed with animal-pair analysis if there is more than one trajectory
-        if np.shape(rawTra)[1]>1:
-            self.Pair=Pair(rawTra.copy(),self.expInfo)
+        if np.shape(self.rawTra)[1]>1:
+            self.Pair=Pair(position.copy(),self.expInfo)
         
             #self.AnShape=AnimalShapeParameters()
             
