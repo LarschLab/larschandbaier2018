@@ -4,7 +4,7 @@ __author__ = 'jlarsch'
 import tkFileDialog
 import sys
 sys.path.append('C:/Users/johannes/Dropbox/python/zFishBehavior/dishGroupBehavior/')
-import joFishHelper
+import experiment as xp
 import os
 import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
@@ -32,13 +32,13 @@ if batchmode:
             currAvi=row['aviPath']
             #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
             #Tkinter.Tk().withdraw() # Close the root window - not working?
-            experiment.append(joFishHelper.experiment(currAvi))
+            experiment.append(xp.experiment(currAvi))
             experiment[index].plotOverview(row['condition'])
             pdf.savefig()  # saves the current figure into a pdf page
             plt.close()
             
             if systShift:
-                systShiftAll.append(joFishHelper.shiftedPairSystematic(experiment[index].Pair, experiment[index].expInfo, 60))
+                systShiftAll.append(xp.shiftedPairSystematic(experiment[index].Pair, experiment[index].expInfo, 60))
             
             
             
@@ -115,8 +115,8 @@ if batchmode:
 
             
 else:    
-    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
-    experiment=joFishHelper.experiment(avi_path)
+    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2016/20160314_TLStacks/1/a/1'))
+    experiment=xp.experiment(avi_path)
     experiment.plotOverview()
 
 
