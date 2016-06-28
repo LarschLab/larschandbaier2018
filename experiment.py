@@ -64,13 +64,18 @@ class Trajectory(object):
         
        
 class Animal(object):
-    def __init__(self,ID,trajectory,expInfo):
+    def __init__(self,ID=0,trajectory=[],expInfo=[]):
         self.expInfo=expInfo
         self.ID=ID
         self.position=Trajectory()
         self.positionPol=Trajectory() #x= theta, y=rho
         self.d_position=Trajectory()
         self.dd_position=Trajectory()
+        
+        #position of neighbor
+        self.N_relPos=Trajectory()
+        self.N_relPosPolRotCart=Trajectory()
+        
         self.travel=np.array([])
         self.totalTravel=np.array([])
         self.speed=np.array([])
@@ -118,7 +123,31 @@ class Animal(object):
         self.PolhistBins=histBins
         
         self.Pol_n =np.histogram(histData[~np.isnan(histData)],bins=histBins,normed=1)[0]
-
+        
+    def get_neighbor_position(self, neighbor_animal):
+        #position of neighbor relative to current animal. (where current animal has a neighbor)
+        
+        self.N_relPos.xy=neighbor_animal.position.xy-self.position.xy
+        relPosPol=mu.cart2pol(self.N_relPos.xy)
+        relPosPolRot=relPosPol.copy()
+        relPosPolRot[:,0]=relPosPol[:,0]-self.heading
+        self.N_relPosPolRotCart.xy=mu.pol2cart(relPosPolRot[:,0],relPosPolRot[:,1])
+        
+        mapBins=np.arange(-31,32)
+        self.neighborMat=np.zeros([62,62])
+        #creates the neighbormat for current animal (where neighbor was)
+        #this map seems flipped both horizontally and vertically! vertical is corrected at plotting.
+        self.neighborMat=np.histogramdd(self.N_relPosPolRotCart.xy,bins=[mapBins,mapBins])[0]
+    
+    def getNeighborForce(self):
+        #position here should be transformed (rotated, relative). [:,0,:] is the position of 
+        mapBins=np.arange(-31,32)
+        self.ForceMat=sta.binned_statistic_2d(self.N_relPosPolRotCart.x()[1:],self.N_relPosPolRotCart.y()[1:],self.accel,bins=[mapBins,mapBins])[0]
+        
+    def analyze_neighbor_interactions(self,neighbor_animal):
+        self.get_relative_position(neighbor_animal)
+        self.getNeighborForce()
+    
 class Pair(object):
     #Class for trajectories of one pair of animals.
     #Calculation and storage of dependent time series: speed, heading, etc.
@@ -126,7 +155,11 @@ class Pair(object):
         
         self.animals=Animal(trajectories[:,0,:],1,expInfo)
         self.animals.append(Animal(trajectories[:,1,:],2,expInfo))
+        self.get_stack_order()
+        self.get_IAD()
         
+        self.animals[0].analyze_neighbor_interactions(self.animals[1])
+        self.animals[1].analyze_neighbor_interactions(self.animals[0])
 
         
     def get_stack_order(self):
@@ -160,47 +193,6 @@ class Pair(object):
         #self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
 
         
-    def getRelativeNeighborPositions(self):
-        
-            
-        pos=position[1:,:,:].copy() #obtain a new copy rather than using reference
-        
-        relPos1=pos[:,0,:]-pos[:,1,:] #position of animal 1 relative to animal 2. (where animal 2 has a neighbor)
-        relPos2=pos[:,1,:]-pos[:,0,:]  
-        
-        pos1=self.animals[0].position
-        pos2=self.animals[1].position
-        
-        relPos1=
-        
-        relPos=np.transpose([relPos1,relPos2],[1,0,2])
-        
-        relPosPol=np.transpose(mu.cart2pol(relPos[:,:,0],relPos[:,:,1]),[1,2,0])
-        relPosPolRot=relPosPol.copy()
-        #rotate 
-        relPosPolRot[:,0,0]=relPosPol[:,0,0]-(hd[:,1])
-        relPosPolRot[:,1,0]=relPosPol[:,1,0]-(hd[:,0])
-        relPosPolRotCart=mu.pol2cart(relPosPolRot[:,:,0],relPosPolRot[:,:,1])
-        relPosPolRotCart=np.transpose(relPosPolRotCart,[1,2,0])
-        
-        mapBins=np.arange(-31,32)
-        neighborMat=np.zeros([62,62,2])
-        #creates the neighbormat for animal 2 (where animal1 was)
-        #this map seems flipped both horizontally and vertically! vertical is corrected at plotting.
-        neighborMat[:,:,1]=np.histogramdd(relPosPolRotCart[:,0,:],bins=[mapBins,mapBins])[0]
-        #creates the neighbormat for animal 1 (where animal2 was)
-        neighborMat[:,:,0]=np.histogramdd(relPosPolRotCart[:,1,:],bins=[mapBins,mapBins])[0]
-        return neighborMat,relPosPolRotCart, relPos
-    
-    def getNeighborForce(position,acceleration):
-        #position here should be transformed (rotated, relative). [:,0,:] is the position of 
-        mapBins=np.arange(-31,32)
-        force_t=np.zeros([62,62,2])
-        #animal 2 
-        force_t[:,:,1]=sta.binned_statistic_2d(position[1:,0,0],position[1:,0,1],acceleration[:,1],bins=[mapBins,mapBins])[0]
-        #animal 1
-        force_t[:,:,0]=sta.binned_statistic_2d(position[1:,1,0],position[1:,1,1],acceleration[:,0],bins=[mapBins,mapBins])[0]
-        return force_t
 
     def getShoalDwellTimes(IAD):
         IADsm=mu.runningMean(IAD,30)
@@ -229,17 +221,6 @@ class Pair(object):
         return HiDwell,LowDwell,HighToLow,LowToHigh
 
 
-
-    def distanceTimeSeries(X):
-        if ~('result' in locals()):
-            result=np.array([])
-        
-        result=np.append(result,abs(X[0]-X[1:]))
-            
-        if np.shape(X)[0]>2:
-            result=np.append(result,distanceTimeSeries(X[1:]))
-    
-        return result
 
 class shiftedPair(object):
     #Class to calculate null hypothesis time series using shifted pairs of animals
