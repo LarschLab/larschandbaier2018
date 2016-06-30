@@ -84,8 +84,6 @@ class Animal(object):
         
         self.update_trajectory_transforms()
         
-        self.get_outward_venture()
-        
         
         #how far did the animal go out towards center?
         #this can be used to determine upper/lower animal in stacks
@@ -112,14 +110,6 @@ class Animal(object):
         #heading: pointing right = 0, pointung up = pi/2      
         self.d_heading=np.diff(self.heading)
     
-    def get_outward_venture(self):
-        #distance from center
-        histData=self.positionPol.y()
-        maxCenterDistance=np.max(histData)
-        histBins=np.linspace(0,maxCenterDistance,100)   
-        self.PolhistBins=histBins
-        
-        self.Pol_n =np.histogram(histData[~np.isnan(histData)],bins=histBins,normed=1)[0]
         
     def get_neighbor_position(self, neighbor_animal):
         #position of neighbor relative to current animal. (where current animal has a neighbor)
@@ -150,7 +140,13 @@ class Animal(object):
         
         #self.dwellH,self.dwellL,self.dwellHTL,self.dwellLTH=getShoalDwellTimes(self.IAD)
 
+    def get_outward_venture(self,maxCenterDistance=50):
+        #distance from center
+        histData=self.positionPol.y()
+        histBins=np.linspace(0,maxCenterDistance,100)   
+        self.PolhistBins=histBins
         
+        self.Pol_n =np.histogram(histData[~np.isnan(histData)],bins=histBins,normed=1)[0]        
     
 class Pair(object):
     #Class for trajectories of one pair of animals.
@@ -167,6 +163,9 @@ class Pair(object):
 
         
     def get_stack_order(self):
+        for x in self.animals:
+            x.get_outward_venture(self.max_out_venture())
+        
         out_venture_all=[x.Pol_n for x in self.animals]
         #figure out who is on top. Animal in top arena can go outwards further
         if out_venture_all[0][-2]==0: #second last bin of animal0 is empty, meaning animal1 went out further ->was on top
@@ -176,7 +175,9 @@ class Pair(object):
         else: #no animal went out more than one bin further than the other -> likely no stack experiment
             self.StackTopAnimal=np.array([0,0])   
             
-        
+
+            
+            
     def get_IAD(self):
         dist=Trajectory()
         dist.xy=self.animals[0].position.xy-self.animals[1].position.xy
@@ -216,16 +217,25 @@ class Pair(object):
     
         return HiDwell,LowDwell,HighToLow,LowToHigh
 
-    def combined_trajectory_stack(self):
-        a1=self.animals[0].position.xy
-        a2=self.animals[1].position.xy
-        return np.stack([a1,a2],1)
         
     def avgSpeed(self):
         a1=np.nanmean(self.animals[0].speed)
         a2=np.nanmean(self.animals[1].speed)
         return np.array([a1,a2])
         
+    def max_out_venture(self):
+        mov=[]
+        mov.append([x.positionPol.y() for x in self.animals])
+        return np.nanmax(mov)
+
+    def get_var_from_all_animals(self, var):
+        #this function returns a specified variable from all animals as a matrix.
+        #animal number will be second dimension
+        
+        tmp=self.animals
+        for i in range(len(var)):
+            tmp=[getattr(x, var[i]) for x in tmp]
+        return np.stack(tmp,axis=1)
 
 class shiftedPair(object):
     #Class to calculate null hypothesis time series using shifted pairs of animals
@@ -235,7 +245,7 @@ class shiftedPair(object):
         self.sPair=[]
         #generate nRuns instances of Pair class with one animal time shifted against the other
         for i in range(self.nRuns):
-            traShift=pair.combined_trajectory_stack()
+            traShift=pair.get_var_from_all_animals(['position','xy'])
             
             shiftIndex=int(random.uniform(self.minShift,traShift.shape[0]-self.minShift))
             #time-rotate animal 0, keep animal 1 as is
@@ -405,7 +415,7 @@ class experiment(object):
         plt.subplot(4,4,13)
         plt.cla()
         PosMat=self.Pair.animals[0].neighborMat
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
+        plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
@@ -413,7 +423,7 @@ class experiment(object):
         plt.subplot(4,4,14)
         plt.cla()
         PosMat=self.Pair.animals[1].neighborMat
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
+        plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
