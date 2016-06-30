@@ -18,49 +18,46 @@ sizePlot=0
 systShift=0
 
 if batchmode:
-    ExpFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
-    PdfFile=ExpFile[:-4]+'.pdf'
-    df=pd.read_csv(ExpFile,sep=',')
-    experiment=[]
-    systShiftAll=[]
-    with PdfPages(PdfFile) as pdf:
-    #with PdfPages('d:/data/b/OnOff_2016a.pdf') as pdf:
-    #with PdfPages('d:/data/b/TL_isolatedVsGroup.pdf') as pdf:
+    
+    def process_csv_experiment_list():
         
-        for index, row in df.iterrows():
-            print 'processing: ', row['aviPath']
-            currAvi=row['aviPath']
-            #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
-            #Tkinter.Tk().withdraw() # Close the root window - not working?
-            experiment.append(xp.experiment(currAvi))
-            experiment[index].plotOverview(row['condition'])
-            pdf.savefig()  # saves the current figure into a pdf page
-            plt.close()
+        csvFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+        PdfFile=csvFile[:-4]+'.pdf'
+        df=pd.read_csv(csvFile,sep=',')
+        experiment=[]
+        systShiftAll=[]
+        with PdfPages(PdfFile) as pdf:
             
-            if systShift:
-                systShiftAll.append(xp.shiftedPairSystematic(experiment[index].Pair, experiment[index].expInfo, 60))
+            for index, row in df.iterrows():
+                print 'processing: ', row['aviPath']
+                currAvi=row['aviPath']
+                experiment.append(xp.experiment(currAvi))
+                experiment[index].plotOverview(row['condition'])
+                pdf.savefig()  # saves the current figure as pdf page
+                plt.close()
+                
+                if systShift:
+                    systShiftAll.append(xp.shiftedPairSystematic(experiment[index].Pair, experiment[index].expInfo, 60))
+    def 
+            df['ShoalIndex']=pd.DataFrame([f.ShoalIndex for f in experiment])
+            df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in experiment])
+            df['avgSpeed']=pd.DataFrame([f.avgSpeed for f in experiment])
+            IADall=[]
+            IADall.append([x.Pair.IAD[0:30*60*90] for x in experiment])
+            t=np.nanmean(IADall,axis=1)
+            smIAD_mAll=np.nanmean([f.sPair.spIAD_m for f in experiment])
             
+            fig, axes = plt.subplots(nrows=1, ncols=2)
             
+            sns.boxplot(ax=axes[0],x='condition',y='ShoalIndex',data=df,width=0.2)
+            sns.stripplot(ax=axes[0],x='condition',y='ShoalIndex',data=df, size=4,jitter=True,edgecolor='gray')
+    
+            sns.boxplot(ax=axes[1],x='condition',y='avgSpeed',data=df,width=0.2)
+            sns.stripplot(ax=axes[1],x='condition',y='avgSpeed',data=df, size=4,jitter=True,edgecolor='gray')
             
-        df['ShoalIndex']=pd.DataFrame([f.ShoalIndex for f in experiment])
-        df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in experiment])
-        df['avgSpeed']=pd.DataFrame([f.avgSpeed for f in experiment])
-        IADall=[]
-        IADall.append([x.Pair.IAD[0:30*60*90] for x in experiment])
-        t=np.nanmean(IADall,axis=1)
-        smIAD_mAll=np.nanmean([f.sPair.spIAD_m for f in experiment])
-        
-        fig, axes = plt.subplots(nrows=1, ncols=2)
-        
-        sns.boxplot(ax=axes[0],x='condition',y='ShoalIndex',data=df,width=0.2)
-        sns.stripplot(ax=axes[0],x='condition',y='ShoalIndex',data=df, size=4,jitter=True,edgecolor='gray')
-
-        sns.boxplot(ax=axes[1],x='condition',y='avgSpeed',data=df,width=0.2)
-        sns.stripplot(ax=axes[1],x='condition',y='avgSpeed',data=df, size=4,jitter=True,edgecolor='gray')
-        
-        axes[0].set_ylim(-0.1,1)
-        axes[1].set_ylim(0,)
-        pdf.savefig()
+            axes[0].set_ylim(-0.1,1)
+            axes[1].set_ylim(0,)
+            pdf.savefig()
         
         if timeStim:
             fig=plt.figure(figsize=(8, 2))

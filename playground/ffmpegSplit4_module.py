@@ -29,7 +29,7 @@ def videoSplit(aviP,tileList):
         if not os.path.exists(directory):
             os.makedirs(directory)
         
-        fcNew=('[0:v]crop={0:.0f}:{1:.0f}:{2:.0f}:{3:.0f}:[out{4}];').format(*(tileList[i]+[i+1])) #e.g. [0:v]crop=1024:1024:0:0[out1];
+        fcNew=('[0:v]crop={0:.0f}:{1:.0f}:{2:.0f}:{3:.0f}:[out{4}];').format(*np.append(tileList[i],i+1)) #e.g. [0:v]crop=1024:1024:0:0[out1];
         fc=fc+''.join(str(w) for w in fcNew)
         mcn1='[out'+str(i+1)+']'
         mcn2=directory+'split_'+str(i+1)+'_'+tail+'.mp4'
@@ -40,7 +40,9 @@ def videoSplit(aviP,tileList):
     '-i', aviP,
     '-filter_complex', fc[:-1]]
 
-    cmd.extend(mc[1:])    
+    
+    cmd.extend(mc[1:]) 
+    print cmd
     print 'starting ffmpeg for video processing...'
     sp.check_output(cmd)
     
