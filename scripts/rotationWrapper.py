@@ -10,14 +10,13 @@ import tkFileDialog
 import os
 from tifffile import imsave
 import numpy as np
-import joFishHelper
+import models.experiment as xp
 import matplotlib.pyplot as plt
-import geometry
+import models.geometry as geometry
 from scipy import stats
 from scipy import signal
-import ImageProcessor
-import matplotlib.pyplot as plt
-import peakdet
+import functions.ImageProcessor as ImageProcessor
+import functions.peakdet as peakdet
 
 
 import random
@@ -31,13 +30,13 @@ else:
     rotVideoPath = os.path.join(head,tail[:-4]+'_rotateBoth_mask.avi')
     csvPath = os.path.join(head,tail[:-4]+'_contour_orientation.csv')
 
-    experiment=joFishHelper.experiment(af)
-    t=experiment.Pair.positionPx
+    experiment=xp.experiment(af)
+    t=experiment.Pair.get_var_from_all_animals(['rawTra','xy'])
     
 #    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],t.shape[0])
 #    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],t.shape[0])
-    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],10000)
-    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],10000)
+    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],1000)
+    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],1000)
     
     a=asp1.fish_orientation_elipse_all
     b=asp2.fish_orientation_elipse_all

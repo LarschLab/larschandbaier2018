@@ -10,8 +10,8 @@ from sklearn.neighbors import KDTree
 import networkx as nx
 import numpy as np
 from scipy import interpolate
-import geometry
-import ImageProcessor
+import models.geometry as geometry
+import functions.ImageProcessor as ImageProcessor
 import matplotlib.pyplot as plt
 
 #img_binary = ImageProcessor.to_binary(img_crop.copy(), 240)

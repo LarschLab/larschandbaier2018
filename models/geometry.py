@@ -2,6 +2,16 @@ import numpy as np
 import math
 import cv2
 
+class Trajectory(object):
+    def __init__(self,xy=np.array([])):
+        self.xy=xy
+        
+    def x(self):
+        return self.xy[:,0]
+    
+    def y(self):
+        return self.xy[:,1]
+        
 class Circle:
     def __init__(self, center=None, radius=0):
         if center:

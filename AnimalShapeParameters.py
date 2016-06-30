@@ -7,10 +7,10 @@ Created on Fri May 06 00:03:18 2016
 
 import numpy as np
 import cv2
-import geometry
-import ImageProcessor
+import models.geometry as geometry
+import functions.ImageProcessor as ImageProcessor
 import matplotlib.pyplot as plt
-import splineTest
+import functions.splineTest as splineTest
 
 class AnimalShapeParameters(object):
     #obtain descriptive shape parameters of animals

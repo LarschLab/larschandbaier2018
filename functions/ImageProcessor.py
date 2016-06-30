@@ -1,13 +1,10 @@
 __author__ = 'TheMaestro'
 
 import numpy as np
-from math import atan2, degrees, pi
-from scipy.spatial import distance
 from skimage import morphology
 from skimage import img_as_ubyte
 import cv2
-from geometry import *
-import math
+from models.geometry import *
 
 
 def get_key_points_coordinates(key_points, x_offset=0, y_offset=0):
