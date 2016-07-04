@@ -42,21 +42,22 @@ def get_skeleton_list(skel,number_points,x_offset=0):
     points=np.c_[skel_list[0],skel_list[1]+x_offset]
     ep=findEndpoints(skel[:,x_offset:])
     
-    #correct endpoints for offset to match original skeleton
-    for i in range(np.shape(ep)[0]):
-        ep[i,1]=ep[i,1]+x_offset
-    
-    #create graph G of 2 nearest neighbors for each point.    
-    G=NN_graph(points)   
-     
-#------alternative strategy to fill the graph-------- not working yet
-#    clf = NearestNeighbors(2).fit(points,2)
-#    G = clf.kneighbors_graph()
-#    T = nx.from_scipy_sparse_matrix(G)
-    
-    #try to find shortest path through the graph from one end-point to the other
-    #then fit a b-spline to the sorted list and return a list of interpolated points on that fit.
-    try:
+    if len(ep)==2: #there are more endpoints when two animals collide
+        #correct endpoints for offset to match original skeleton
+        for i in range(np.shape(ep)[0]):
+            ep[i,1]=ep[i,1]+x_offset
+        
+        #create graph G of 2 nearest neighbors for each point.    
+        G=NN_graph(points)   
+         
+    #------alternative strategy to fill the graph-------- not working yet
+    #    clf = NearestNeighbors(2).fit(points,2)
+    #    G = clf.kneighbors_graph()
+    #    T = nx.from_scipy_sparse_matrix(G)
+        
+        #find shortest path through the graph from one end-point to the other
+        #then fit a b-spline to the sorted list and return a list of interpolated points on that fit.
+
         sp=nx.shortest_path(G,source=(ep[0,0],ep[0,1]),target=(ep[1,0],ep[1,1]))
         spa=np.array(sp)
         x=spa[:,0]
@@ -67,13 +68,8 @@ def get_skeleton_list(skel,number_points,x_offset=0):
         tckp,u=interpolate.splprep([x,y],s=s,k=k,nest=nest)
         xnew,ynew=interpolate.splev(np.linspace(0,1,number_points),tckp)
         return np.c_[xnew,ynew], spa, ep
-    except:
-        print 'endpoints'
-        print ep
-        #print 'points'
-        #print points
-        print 'edges'
-        print G.edges()
+
+    else: #animal collision: more than 2 endpoints
         return None, None, None
 
 

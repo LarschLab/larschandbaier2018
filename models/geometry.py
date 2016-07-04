@@ -272,4 +272,31 @@ def smallest_angle_difference_degrees(x,y):
     smallest_diff=np.mod(diff+180,360)-180
     return smallest_diff
 
+def get_angle_list(a,b):
+    angle_list=np.zeros(a.shape[0])
+    for i in range(a.shape[0]):
+        p1=Vector(*a[i,:])
+        p2=Vector(*b[i,:])
+        angle_list[i]=Vector.get_angle(p1,p2)
+    return angle_list   
+        
+def distance_point_line(p,l1,l2):
+    distance=np.abs((l2[1]-l1[1])*p[0]-(l2[0]-l1[0])*p[1]+l2[0]*l1[1]-l2[1]*l1[0])/np.sqrt((l2[1]-l1[1])**2+(l2[0]-l1[0])**2)
+    return distance
 
+def get_contour_inner_angles(contour_in):
+    #for each point, get angle of vectors pointing away from point towards neighbors
+    contour=np.squeeze(contour_in)
+    contour_roll_forward=np.roll(contour,1,axis=0)
+    contour_roll_backward=np.roll(contour,-1,axis=0)
+    vectors_forward=contour_roll_forward-contour
+    vectors_backward=contour_roll_backward-contour
+    contour_angles=[]
+    #calculate polygon angles
+    #angle between lines defined by 3 adjacent polygon points
+    for j in range(contour.shape[0]):
+        v1=Vector(*vectors_backward[j])
+        v2=Vector(*vectors_forward[j])                    
+        contour_angles.append(v1.get_angleb(v2))
+        #contour_angles.append(geometry.Vector.get_angle(v1,v2))
+    return contour_angles    

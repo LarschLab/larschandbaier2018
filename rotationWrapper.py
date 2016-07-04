@@ -5,7 +5,7 @@ Created on Tue May 31 14:29:56 2016
 @author: jlarsch
 """
 
-import AnimalShapeParameters
+import models.AnimalShapeParameters as asp
 import tkFileDialog
 import os
 from tifffile import imsave
@@ -18,8 +18,8 @@ from scipy import signal
 import functions.ImageProcessor as ImageProcessor
 import functions.peakdet as peakdet
 
-
 import random
+reread=1
 
 if 'adf' in globals():
     print af
@@ -31,15 +31,16 @@ else:
     csvPath = os.path.join(head,tail[:-4]+'_contour_orientation.csv')
 
     experiment=xp.experiment(af)
-    t=experiment.Pair.get_var_from_all_animals(['rawTra','xy'])
+    pair_trajectories=experiment.Pair.get_var_from_all_animals(['rawTra','xy'])
     
 #    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],t.shape[0])
 #    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],t.shape[0])
-    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],1000)
-    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],1000)
+    if reread:    
+        asp2=asp.AnimalShapeParameters(af,pair_trajectories[:,1,:],1000)
+        asp1=asp.AnimalShapeParameters(af,pair_trajectories[:,0,:],1000)
     
-    a=asp1.fish_orientation_elipse_all
-    b=asp2.fish_orientation_elipse_all
+    a=asp1.fish_orientation_elipse
+    b=asp2.fish_orientation_elipse
 
     #distance between centroids
     #use as mask to flag collisions
@@ -51,7 +52,7 @@ else:
     b[collision_frames]=np.nan
     
     #compute delta heading as difference of heading to angle between centroids of the two animals
-    angle_centroid_connect=get_angle_list(asp1.centroidContour,asp2.centroidContour)
+    angle_centroid_connect=geometry.get_angle_list(asp1.centroidContour,asp2.centroidContour)
     
     #flip angles along x axis for consistent angle reference
     acc_1to2=np.mod(180-angle_centroid_connect,360)
@@ -70,7 +71,7 @@ else:
 
     #imsave(rotVideoPath, mr)
     
-    ang2=np.array(asp2.spineAngles)
+    ang2=np.array(asp2.spine_angles_all)
     ang3=np.mod(ang2,180).T
     ang3[:,collision_frames]=np.nan
     
@@ -79,23 +80,13 @@ else:
     ax.imshow(ang3)
     ax.set_aspect('auto')
         
-def get_angle_list(a,b):
-    angle_list=np.zeros(a.shape[0])
-    for i in range(a.shape[0]):
-        p1=geometry.Vector(*a[i,:])
-        p2=geometry.Vector(*b[i,:])
-        angle_list[i]=geometry.Vector.get_angle(p1,p2)
-    return angle_list   
-        
-def distance_point_line(p,l1,l2):
-    distance=np.abs((l2[1]-l1[1])*p[0]-(l2[0]-l1[0])*p[1]+l2[0]*l1[1]-l2[1]*l1[0])/np.sqrt((l2[1]-l1[1])**2+(l2[0]-l1[0])**2)
-    return distance
+
     
 allDist=np.zeros(ang3.shape)
 for i in range(allDist.shape[1]):
     for j in range(allDist.shape[0]):
         try:
-            allDist[j,i]=distance_point_line(asp2.skel_smooth_all[i][j],asp2.skel_smooth_all[i][0],asp2.skel_smooth_all[i][-1])
+            allDist[j,i]=geometry.distance_point_line(asp2.skel_smooth_all[i][j],asp2.skel_smooth_all[i][0],asp2.skel_smooth_all[i][-1])
         except:
             allDist[j,1]=np.nan
 allDist[:,collision_frames]=np.nan
@@ -111,6 +102,11 @@ plt.figure()
 plt.plot(np.nanmean(allDist,axis=0),'o-')
 
 #detect bouts
+
+d_orientation_a=np.diff(a)
+d_orientation_b=np.diff(b)
+plt.figure()
+plt.plot(np.abs(d_orientation_b))
 
 bout_start=peakdet.detect_peaks(np.abs(d_orientation_b[:1000]),5,8)
 
@@ -187,10 +183,7 @@ for i in range(10):
 #plt.figure()
 #plt.plot(chunk_IADm)
 #
-d_orientation_a=np.diff(a)
-d_orientation_b=np.diff(b)
-plt.figure()
-plt.plot(np.abs(d_orientation_b))
+
 
 
 
