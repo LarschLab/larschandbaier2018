@@ -11,8 +11,9 @@ import geometry as geometry
 import functions.ImageProcessor as ImageProcessor
 import matplotlib.pyplot as plt
 import functions.splineTest as splineTest
+import pickle
 
-class AnimalShapeParameters(object):
+def get_AnimalShapeParameters(path,trajectories,nframes):
     #obtain descriptive shape parameters of animals
     #typically starting from a video tracked (by idTracker), return to the video to extract further shape information
     #-direction based on iterative contour analysis: elipse fit & tail detection
@@ -27,14 +28,41 @@ class AnimalShapeParameters(object):
     #   Angle of headVector: headAngle
     #   Skeleton:listOfPoints
     #       tailStraight-ness
+    video = cv2.VideoCapture(path)
+    asp=[]
+    asp.append(AnimalShapeParameters(trajectories[:,0,:],nframes))
+    asp.append(AnimalShapeParameters(trajectories[:,1,:],nframes))
+    
+    pickleFile=path[:-4+'.pickle']
+    for i in range(nframes):
+        if np.mod(i,100)==0:
+            print i,"         \r",
+            
+        try:
+            video.set(cv2.CAP_PROP_POS_FRAMES,i)
+            img_frame_original = video.read()[1]
+            img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
+            asp[0].process_frame(img_frame_original,i)
+            asp[1].process_frame(img_frame_original,i)
+        except:
+            print ['error processing frame: ',i]
+            print 'saving data'
+            save_asp(pickleFile,asp)
+            return asp
+            
+    print 'saving data'
+    save_asp(pickleFile,asp)       
+    return asp
 
-    def __init__(self,path,trajectory='none',frames=100):
-        self.path=path
-        self.trajectory=trajectory
-        self.crawlVideo(path,trajectory,frames)
+def save_asp(fn,asp):
+    with open(fn, 'w') as f:
+        pickle.dump(asp, f)
+    print ['data saved as ',fn]
 
-    def crawlVideo(self,path,trajectory='none',nframes=100):
+class AnimalShapeParameters(object):
         
+    def __init__(self,trajectory,nframes=100,generateOutVideo=0):
+        self.trajectory=trajectory
         self.threshold_elipse = 185
         self.threshold_skeleton=240
         #ROI size around animal 
@@ -45,85 +73,80 @@ class AnimalShapeParameters(object):
         self.skel_smooth_all=np.zeros((nframes,30,2))
         self.spine_angles_all=np.zeros((nframes,29))
         self.centroidContour=np.zeros((nframes,2))
-        self.frAll_rot=np.zeros((cropSize,cropSize,nframes),dtype='uint8')
+        
         self.fish_orientation_elipse=np.zeros(nframes)
         self.good_skel=np.ones(nframes)
+        self.generateOutVideo=generateOutVideo
         
-        video = cv2.VideoCapture(path)
-        
-        for i in range(nframes):
-            if np.mod(i,100)==0:
-                print i,"         \r",
+        if generateOutVideo:
+            self.frAll_rot=np.zeros((cropSize,cropSize,nframes),dtype='uint8')
 
-            video.set(cv2.CAP_PROP_POS_FRAMES,i)
-            img_frame_original = video.read()[1]
-            img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
+    def process_frame(self,img_frame_original,i):
+        
+
+        #process sub region around fish
+        currCenter=geometry.Vector(*self.trajectory[i,:])
+        img_crop=ImageProcessor.crop_zero_pad(img_frame_original,currCenter,self.cropSize)
+        
+        #currently, best strategy for orientation seems to be a sequential process:
+        #   1: Use a robust 0-180 degree measure to find major orientation of the fish shape
+        #       *-a) fit ellipse on (low) rigid body threshold contour, ellipse angle is robust chest-eye orientation
+        #       -b) use image moments
+        #   2: use second approach to distinguish head-tail
+        #       *-a) find tail in polygonFit on low threshold contour, find tail-center direction
+        #       -b)  use hull contour instead of polygon to find tail tip [NOT robust when tail bends - deleted]
+        #       -c) find darkest pixel, assume it is eye, find center-eye direction [NOT robust, sometimes chest darker than eye]
+        #   3: (not yet implemented) refine elipse orientation using eye position
+        
+        
+        # 1: find robust 0-180 major axis orientation
+        # use a low threshold contour that includes the rigid fish body but not the flexible tail
+        
+        contour_fish_elipse,centerOfMass_elipse = self.get_fish_contour(img_crop.copy(),self.threshold_elipse)
+        self.fish_orientation_elipse[i]=self.get_fish_orientation(contour_fish_elipse,centerOfMass_elipse)
+        
+        contour_fish_skel, centerOfMass_skel = self.get_fish_contour(img_crop.copy(),self.threshold_skeleton)
+        #centroid of contour related back to un-cropped image
+        self.centroidContour[i,:]=np.add(self.trajectory[i,:],np.subtract([centerOfMass_skel.x,centerOfMass_skel.y],[151,149]))
             
-            if trajectory !='none':
-                #process sub region around fish
-                currCenter=geometry.Vector(*trajectory[i,:])
-                img_crop=ImageProcessor.crop_zero_pad(img_frame_original,currCenter,cropSize)
+        if not np.isnan(self.fish_orientation_elipse[i]):
+        
+            #generate rotation cancelled image
+            #translate contour centroid to image center
+        
+            #translation
+            M_trans = np.float32([[1,0,self.cropSize/2-centerOfMass_elipse[0]],[0,1,self.cropSize/2-centerOfMass_elipse[1]]])
+            animalCenter=geometry.Vector(self.cropSize/2,self.cropSize/2)
+            img_trans = 255-cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
+            
+            #rotation
+            M_rot = cv2.getRotationMatrix2D((self.cropSize/2,self.cropSize/2),self.fish_orientation_elipse[i],1)
+            img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
+            
+            
+            #mask away everything other than current animal
+            contour_skel, centerOfMass = self.get_fish_contour(img_rot.copy(),self.threshold_skeleton,animalCenter)
+            
+            mask = np.ones(img_crop.shape[:2], dtype="uint8") * 0
+            cv2.drawContours(mask, contour_skel, -1, 255, -1)
+            mask=255-mask
+            img_rot_binary=ImageProcessor.to_binary(mask.copy(), self.threshold_skeleton)
+            
+            #get skeleton and segment angles from binary image
+            skel_angles,skel_smooth,skel,ep=splineTest.return_skeleton(img_rot_binary)
+                
+            self.spine_angles_all[i,:]=skel_angles
+            if skel_smooth is not None:
+                skel_smooth=np.roll(skel_smooth,1,axis=1)
+                cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
             else:
-                img_crop=img_frame_original
-            
-            #currently, best strategy for orientation seems to be a sequential process:
-            #   1: Use a robust 0-180 degree measure to find major orientation of the fish shape
-            #       *-a) fit ellipse on (low) rigid body threshold contour, ellipse angle is robust chest-eye orientation
-            #       -b) use image moments
-            #   2: use second approach to distinguish head-tail
-            #       *-a) find tail in polygonFit on low threshold contour, find tail-center direction
-            #       -b)  use hull contour instead of polygon to find tail tip [NOT robust when tail bends - deleted]
-            #       -c) find darkest pixel, assume it is eye, find center-eye direction [NOT robust, sometimes chest darker than eye]
-            #   3: (not yet implemented) refine elipse orientation using eye position
-            
-            
-            # 1: find robust 0-180 major axis orientation
-            # use a low threshold contour that includes the rigid fish body but not the flexible tail
-            
-            contour_fish_elipse,centerOfMass_elipse = self.get_fish_contour(img_crop.copy(),self.threshold_elipse)
-            self.fish_orientation_elipse[i]=self.get_fish_orientation(contour_fish_elipse,centerOfMass_elipse)
-            
-            contour_fish_skel, centerOfMass_skel = self.get_fish_contour(img_crop.copy(),self.threshold_skeleton)
-            #centroid of contour related back to un-cropped image
-            self.centroidContour[i,:]=np.add(trajectory[i,:],np.subtract([centerOfMass_skel.x,centerOfMass_skel.y],[151,149]))
-                
-            if not np.isnan(self.fish_orientation_elipse[i]):
-            
-                #generate rotation cancelled image
-                #translate contour centroid to image center
-            
-                #translation
-                M_trans = np.float32([[1,0,cropSize/2-centerOfMass_elipse[0]],[0,1,cropSize/2-centerOfMass_elipse[1]]])
-                animalCenter=geometry.Vector(cropSize/2,cropSize/2)
-                img_trans = 255-cv2.warpAffine(255-img_crop,M_trans,img_crop.shape)
-                
-                #rotation
-                M_rot = cv2.getRotationMatrix2D((cropSize/2,cropSize/2),self.fish_orientation_elipse[i],1)
-                img_rot = 255-cv2.warpAffine(255-img_trans,M_rot,img_trans.shape)
-                
-                
-                #mask away everything other than current animal
-                contour_skel, centerOfMass = self.get_fish_contour(img_rot.copy(),self.threshold_skeleton,animalCenter)
-                
-                mask = np.ones(img_crop.shape[:2], dtype="uint8") * 0
-                cv2.drawContours(mask, contour_skel, -1, 255, -1)
-                mask=255-mask
-                img_rot_binary=ImageProcessor.to_binary(mask.copy(), self.threshold_skeleton)
-                
-                #get skeleton and segment angles from binary image
-                skel_angles,skel_smooth,skel,ep=splineTest.return_skeleton(img_rot_binary)
-                    
-                self.spine_angles_all[i,:]=skel_angles
-                if skel_smooth is not None:
-                    skel_smooth=np.roll(skel_smooth,1,axis=1)
-                    cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
-                else:
-                    self.good_skel[i]=0
-                    #print ['error extracting skeleton in frame: ',i]
+                self.good_skel[i]=0
+                #print ['error extracting skeleton in frame: ',i]
 
-            #self.frAll_rot[:,:,i]=img_rot_binary
-            self.skel_smooth_all[i,:,:]=skel_smooth
-            
+        self.skel_smooth_all[i,:,:]=skel_smooth
+        
+        if self.generateOutVideo:
+            self.frAll_rot[:,:,i]=img_rot_binary    
 
     def get_tail_tip_polygon(self,contour,epsilonFactor=0.02):         
     
