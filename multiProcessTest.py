@@ -60,6 +60,7 @@ def g(i):
     arr = tonumpyarray(shared_arr)
     arr[i] = -1 * arr[i]
     info("end   %s" % (i,))
+    print 'hello'
 
 if __name__ == '__main__':
     mp.freeze_support()
