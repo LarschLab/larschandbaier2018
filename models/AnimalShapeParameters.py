@@ -9,9 +9,9 @@ import numpy as np
 import cv2
 import geometry as geometry
 import functions.ImageProcessor as ImageProcessor
-import matplotlib.pyplot as plt
 import functions.splineTest as splineTest
 import pickle
+import datetime
 
 def get_AnimalShapeParameters(path,trajectories,nframes):
     #obtain descriptive shape parameters of animals
@@ -32,32 +32,63 @@ def get_AnimalShapeParameters(path,trajectories,nframes):
     asp=[]
     asp.append(AnimalShapeParameters(trajectories[:,0,:],nframes))
     asp.append(AnimalShapeParameters(trajectories[:,1,:],nframes))
-    
-    pickleFile=path[:-4+'.pickle']
+    currentTime=datetime.datetime.now()
+    pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
     for i in range(nframes):
         if np.mod(i,100)==0:
             print i,"         \r",
+        if np.mod(i,1000)==0:
+            print i
             
-        try:
-            video.set(cv2.CAP_PROP_POS_FRAMES,i)
-            img_frame_original = video.read()[1]
-            img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
-            asp[0].process_frame(img_frame_original,i)
-            asp[1].process_frame(img_frame_original,i)
-        except:
-            print ['error processing frame: ',i]
-            print 'saving data'
-            save_asp(pickleFile,asp)
-            return asp
-            
+#        try:
+        video.set(cv2.CAP_PROP_POS_FRAMES,i)
+        img_frame_original = video.read()[1]
+        img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
+        asp[0].process_frame(img_frame_original,i)
+        asp[1].process_frame(img_frame_original,i)
+#        except:
+#            print ['error processing frame: ',i]
+    asp_cleanUp(asp)
     print 'saving data'
-    save_asp(pickleFile,asp)       
+    save_asp(pickleFile,asp)
     return asp
 
 def save_asp(fn,asp):
     with open(fn, 'w') as f:
         pickle.dump(asp, f)
     print ['data saved as ',fn]
+
+def asp_cleanUp(asp):
+    a=asp[0].fish_orientation_elipse
+    b=asp[1].fish_orientation_elipse
+    
+    #distance between centroids
+    #use as mask to flag collisions
+    animal_dif=asp[0].centroidContour - asp[1].centroidContour
+    dist=np.sqrt(animal_dif[:,0]**2 + animal_dif[:,1]**2)
+    collision_frames=dist<1
+    
+    a[collision_frames]=np.nan
+    b[collision_frames]=np.nan
+
+    #compute delta heading as difference of heading to angle between centroids of the two animals
+    angle_centroid_connect=geometry.get_angle_list(asp[0].centroidContour,asp[1].centroidContour)
+    
+    #flip angles along x axis for consistent angle reference
+    acc_1to2=np.mod(180-angle_centroid_connect,360)
+    acc_2to1=np.mod(180+acc_1to2,360)
+    
+    #deviation of an1 from an2 centroid
+    asp[1].deviation=geometry.smallest_angle_difference_degrees(b,acc_2to1)  
+    asp[0].deviation=geometry.smallest_angle_difference_degrees(a,acc_1to2)
+
+    ang2=np.array(asp[1].spine_angles_all)
+    ang3=np.mod(ang2,180).T
+    ang3[:,collision_frames]=np.nan
+    
+
+    asp[0].allDist[collision_frames,:]=np.nan
+    asp[1].allDist[collision_frames,:]=np.nan
 
 class AnimalShapeParameters(object):
         
@@ -73,6 +104,7 @@ class AnimalShapeParameters(object):
         self.skel_smooth_all=np.zeros((nframes,30,2))
         self.spine_angles_all=np.zeros((nframes,29))
         self.centroidContour=np.zeros((nframes,2))
+        self.allDist=np.zeros((nframes,30))
         
         self.fish_orientation_elipse=np.zeros(nframes)
         self.good_skel=np.ones(nframes)
@@ -139,12 +171,21 @@ class AnimalShapeParameters(object):
             if skel_smooth is not None:
                 skel_smooth=np.roll(skel_smooth,1,axis=1)
                 cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
+                for j in range(len(skel_smooth)):
+                    try:
+                        self.allDist[i,j]=geometry.distance_point_line(skel_smooth[j],skel_smooth[0],skel_smooth[-1])
+                    except:
+                        self.allDist[i,0]=np.nan                     
+                
             else:
                 self.good_skel[i]=0
+                self.allDist[i,0]=np.nan
                 #print ['error extracting skeleton in frame: ',i]
+                
 
         self.skel_smooth_all[i,:,:]=skel_smooth
         
+                
         if self.generateOutVideo:
             self.frAll_rot[:,:,i]=img_rot_binary    
 
@@ -209,7 +250,7 @@ class AnimalShapeParameters(object):
             
         else:
             
-            return np.nan()
+            return np.nan
 
     
 
