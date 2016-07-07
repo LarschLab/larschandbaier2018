@@ -22,10 +22,7 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
     #obtain descriptive shape parameters of animals
     #typically starting from a video tracked (by idTracker), return to the video to extract further shape information
     #-direction based on iterative contour analysis: elipse fit & tail detection
-    
-    #Planning to do:
-    #--store extracted parameters and re-load if possible instead re-generating from video
-    
+
     #features to extract:
     #   position between eyes: center_eyes
     #   center of chest&eyes: center_chest
@@ -35,22 +32,16 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
     #       tailStraight-ness
     video = cv2.VideoCapture(path)
     asp=[]
-    #asp.append(AnimalShapeParameters(trajectories[:,0,:],nframes))
-    #asp.append(AnimalShapeParameters(trajectories[:,1,:],nframes))
 
-
-    #asp_cleanUp(asp)
-    
-    
-    
     
     for i in np.arange(startFrame,startFrame+nFrames):
         video.set(cv2.CAP_PROP_POS_FRAMES,i)
         img_frame_original = video.read()[1]
         img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
         tc=trajectories[i,0,:]
-        asp.append(AnimalShapeParameters(tc,img_frame_original,i,0))
-        asp.append(AnimalShapeParameters(tc,img_frame_original,i,1))
+        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,0))
+        tc=trajectories[i,1,:]
+        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,1))
 
     return asp
     
@@ -61,7 +52,7 @@ def storeOutputFFF(fff,theArgs,que): #add a argument to function for assigning a
     
 def vidSplit(path,trajectories):
     nframes=trajectories.shape[0]
-    npro=6
+    npro=mp.cpu_count()-1
     listOf_FuncAndArgLists=[]
     chunkSize=np.floor(nframes/npro)
     for i in range(npro):
@@ -73,7 +64,12 @@ def vidSplit(path,trajectories):
     for job in jobs: job.start() # Launch them all
     #for job in jobs: job.join() # Wait for them all to finish
     # And now, collect all the outputs:
-    asp=[queue.get() for queue in queues]
+    asp_f=[queue.get() for queue in queues]
+    asp=[]            
+    asp.append(AnimalShapeParameters(asp_f,0))
+    asp.append(AnimalShapeParameters(asp_f,1))
+    
+    asp=asp_cleanUp(asp)
     
     currentTime=datetime.datetime.now()
     print currentTime, ': saving data'
@@ -120,7 +116,24 @@ def asp_cleanUp(asp):
     asp[0].allDist[collision_frames,:]=np.nan
     asp[1].allDist[collision_frames,:]=np.nan
 
+    return asp
+    
 class AnimalShapeParameters(object):
+        
+    def __init__(self,asp_f,animal):
+        self.trajectory=np.array([x.trajectory for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        self.threshold_elipse = asp_f[0][0].threshold_elipse
+        self.threshold_skeleton=asp_f[0][0].threshold_skeleton
+        
+        self.trajectory=np.array([x.trajectory for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        self.skel_smooth_all=np.array([x.skel_smooth_all for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        self.spine_angles_all=np.array([x.spine_angles_all for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        self.fish_orientation_elipse=np.array([x.fish_orientation_elipse for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        self.allDist=np.array([x.allDist for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        self.centroidContour=np.array([x.centroidContour for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        
+        
+class AnimalShapeParameters_f(object):
         
     def __init__(self,trajectory,img_frame_original,i,animal,generateOutVideo=0):
         self.trajectory=trajectory
@@ -132,7 +145,7 @@ class AnimalShapeParameters(object):
         self.cropSize=cropSize
         
         self.skel_smooth_all=np.zeros((30,2))
-        self.spine_angles_all=np.zeros(29)
+        
         self.centroidContour=np.zeros(2)
         self.allDist=np.zeros(30)
         

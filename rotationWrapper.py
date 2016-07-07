@@ -5,7 +5,7 @@ Created on Tue May 31 14:29:56 2016
 @author: jlarsch
 """
 
-import models.AnimalShapeParameters as asp
+import models.AnimalShapeParameters as AnimalShapeParameters
 import tkFileDialog
 import os
 #from tifffile import imsave
@@ -15,34 +15,64 @@ import matplotlib.pyplot as plt
 import models.geometry as geometry
 import multiprocessing as mp
 import functions.peakdet as peakdet
+import pickle
 
 
+if __name__ == '__main__':
+    mp.freeze_support()
+    reread=1
 
+         
+    if reread:
+        af = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2016/20160314_TLStacks/1/a/1/'))
+        head, tail = os.path.split(af)
+        head=os.path.normpath(head)
+        rotVideoPath = os.path.join(head,tail[:-4]+'_rotateBoth_mask.avi')
+        csvPath = os.path.join(head,tail[:-4]+'_contour_orientation.csv')
+        
+        experiment=xp.experiment(af)
+        pair_trajectories=experiment.Pair.get_var_from_all_animals(['rawTra','xy'])
+        asp=AnimalShapeParameters.vidSplit(af,pair_trajectories)
+        
+    else:
+        pf = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2016/20160314_TLStacks/1/a/1/'))
+        f=open(pf,'r')
+        asp_f=pickle.load(f)
+        if type(asp_f[0]) is list: #this collection still contains individual animal shape objects for each frame
+            asp=[]            
+            asp.append(AnimalShapeParameters.AnimalShapeParameters(asp_f,0))
+            asp.append(AnimalShapeParameters.AnimalShapeParameters(asp_f,1))
+            asp=AnimalShapeParameters.asp_cleanUp(asp)
+            
+            pickleFile=pf[:-7]+'_+'.pickle
+            AnimalShapeParameters.save_asp(pickleFile,asp)
+        else:
+            asp=asp_f
 #b=hhh[0] 
 #
-#plt.figure()
-#n, bins, patches =plt.hist(asp[0].deviation,bins=range(-180,180,10), normed=1, histtype='step')
-#n, bins, patches =plt.hist(asp[1].deviation,bins=range(-180,180,10), normed=1, histtype='step')
-#
-#
-#ad=np.array([x.allDist.T for x in asp])
-#
-#fig = plt.figure()
-#ax = fig.add_subplot(111)
-#ax.imshow(ad)
-#ax.set_aspect('auto')
-#
-#plt.figure()
-#tail_curve_1=np.nanmean(asp[1].allDist.T,axis=0)
-#plt.plot(tail_curve_1,'o-')
-#
-##detect bouts
-#
-#bout_start=peakdet.detect_peaks(tail_curve_1,1,8)
-
-#plt.plot(xxx,np.abs(d_orientation_b)[xxx],'o')
-#plt.figure()
-#plt.plot(np.mod(np.abs(d_orientation_b),180))
+    plt.figure()
+    n, bins, patches =plt.hist(asp[0].deviation,bins=range(-180,180,10), normed=1, histtype='step')
+    n, bins, patches =plt.hist(asp[1].deviation,bins=range(-180,180,10), normed=1, histtype='step')
+    
+    
+    ad=np.array([x.allDist.T for x in asp])
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(ad)
+    ax.set_aspect('auto')
+    
+    plt.figure()
+    tail_curve_1=np.nanmean(asp[1].allDist.T,axis=0)
+    plt.plot(tail_curve_1,'o-')
+    
+    #detect bouts
+    
+    bout_start=peakdet.detect_peaks(tail_curve_1,1,8)
+    
+    plt.plot(xxx,np.abs(d_orientation_b)[xxx],'o')
+    plt.figure()
+    plt.plot(np.mod(np.abs(d_orientation_b),180))
 #    
 #
 ##contour_orientation = np.array([a, b]).T
@@ -113,30 +143,3 @@ import functions.peakdet as peakdet
 #plt.figure()
 #plt.plot(chunk_IADm)
 #
-
-
-
-if __name__ == '__main__':
-    mp.freeze_support()
-    reread=1
-
-    af = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2016/20160314_TLStacks/1/a/1/'))
-    head, tail = os.path.split(af)
-    head=os.path.normpath(head)
-    rotVideoPath = os.path.join(head,tail[:-4]+'_rotateBoth_mask.avi')
-    csvPath = os.path.join(head,tail[:-4]+'_contour_orientation.csv')
-    
-    experiment=xp.experiment(af)
-    pair_trajectories=experiment.Pair.get_var_from_all_animals(['rawTra','xy'])
-    
-    #    asp2=AnimalShapeParameters.AnimalShapeParameters(af,t[:,1,:],pair_trajectories.shape[0])
-    #    asp1=AnimalShapeParameters.AnimalShapeParameters(af,t[:,0,:],pair_trajectories.shape[0])
-    
-    
-              
-                
-    if reread:
-        #asp=asp.get_AnimalShapeParameters(af,pair_trajectories,pair_trajectories.shape[0])
-    #    asp=asp.get_AnimalShapeParameters(af,pair_trajectories,100)
-        asp=asp.vidSplit(af,pair_trajectories)
-
