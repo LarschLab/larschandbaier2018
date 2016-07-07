@@ -21,7 +21,11 @@ def return_skeleton(img_binary):
 #this is going to be trouble when there is significant branching
     img_bin_crop=img_binary
     skel=ImageProcessor.to_skeleton(img_bin_crop)
-    skel_smooth,skel_list, ep=get_skeleton_list(skel,30,150)
+    try:
+        skel_smooth,skel_list, ep=get_skeleton_list(skel,30,150)
+    except:
+        skel_smooth,skel_list, ep = None,None,None
+        
     if skel_smooth is not None:
         skel_angles=get_line_angles(skel_smooth)
     else:

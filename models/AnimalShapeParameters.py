@@ -14,6 +14,8 @@ import pickle
 import datetime
 import multiprocessing as mp
 from contextlib import closing
+import sys
+
 #import itertools
 
 def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
@@ -35,12 +37,11 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
     asp=[]
     #asp.append(AnimalShapeParameters(trajectories[:,0,:],nframes))
     #asp.append(AnimalShapeParameters(trajectories[:,1,:],nframes))
-    #currentTime=datetime.datetime.now()
-    #pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
+
 
     #asp_cleanUp(asp)
-    #print 'saving data'
-    #save_asp(pickleFile,asp)
+    
+    
     
     
     for i in np.arange(startFrame,startFrame+nFrames):
@@ -49,6 +50,7 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
         img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
         tc=trajectories[i,0,:]
         asp.append(AnimalShapeParameters(tc,img_frame_original,i,0))
+        asp.append(AnimalShapeParameters(tc,img_frame_original,i,1))
 
     return asp
     
@@ -58,19 +60,27 @@ def storeOutputFFF(fff,theArgs,que): #add a argument to function for assigning a
     que.put(fff(*theArgs)) #we're putting return value into queue
     
 def vidSplit(path,trajectories):
-    
+    nframes=trajectories.shape[0]
+    npro=6
     listOf_FuncAndArgLists=[]
-    chunkSize=50
-    for i in range(4):
+    chunkSize=np.floor(nframes/npro)
+    for i in range(npro):
         
         listOf_FuncAndArgLists.append([get_AnimalShapeParameters,path,trajectories,i*chunkSize,chunkSize])
         
     queues=[mp.Queue() for fff in listOf_FuncAndArgLists] #create a queue object for each function
     jobs = [mp.Process(target=storeOutputFFF,args=[funcArgs[0],funcArgs[1:],queues[iii]]) for iii,funcArgs in enumerate(listOf_FuncAndArgLists)]
     for job in jobs: job.start() # Launch them all
-    for job in jobs: job.join() # Wait for them all to finish
+    #for job in jobs: job.join() # Wait for them all to finish
     # And now, collect all the outputs:
-    return([queue.get() for queue in queues])
+    asp=[queue.get() for queue in queues]
+    
+    currentTime=datetime.datetime.now()
+    print currentTime, ': saving data'
+    pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
+    save_asp(pickleFile,asp)
+    
+    return asp
 
 
 def save_asp(fn,asp):
@@ -135,10 +145,12 @@ class AnimalShapeParameters(object):
         if generateOutVideo:
             self.frAll_rot=np.zeros((cropSize,cropSize),dtype='uint8')
         
-        if np.mod(i,100)==0:
-            print i,"         \r",
-        if np.mod(i,100)==0:
-            print 'animal: ',animal, ' frame: ',i
+        #if np.mod(i,100)==0:
+        #    print i,"         \r",
+        if np.mod(i,1000)==0:
+            currentTime=datetime.datetime.now()
+            print currentTime,'animal: ',animal, ' frame: ',i
+            sys.stdout.flush()
             
         #process sub region around fish
         currCenter=geometry.Vector(*self.trajectory)
@@ -163,7 +175,10 @@ class AnimalShapeParameters(object):
         
         contour_fish_skel, centerOfMass_skel = self.get_fish_contour(img_crop.copy(),self.threshold_skeleton)
         #centroid of contour related back to un-cropped image
-        self.centroidContour=np.add(self.trajectory,np.subtract([centerOfMass_skel.x,centerOfMass_skel.y],[151,149]))
+        try:        
+            self.centroidContour=np.add(self.trajectory,np.subtract([centerOfMass_skel.x,centerOfMass_skel.y],[151,149]))
+        except:
+            print 'no center of mass for frame: ',i
             
         if not np.isnan(self.fish_orientation_elipse):
         
@@ -207,7 +222,7 @@ class AnimalShapeParameters(object):
                 #print ['error extracting skeleton in frame: ',i]
                 
 
-        self.skel_smooth_all=skel_smooth
+            self.skel_smooth_all=skel_smooth
         
                 
         if self.generateOutVideo:
