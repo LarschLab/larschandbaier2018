@@ -18,7 +18,7 @@ import sys
 
 #import itertools
 
-def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
+def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames,generateOutVideo=0):
     #obtain descriptive shape parameters of animals
     #typically starting from a video tracked (by idTracker), return to the video to extract further shape information
     #-direction based on iterative contour analysis: elipse fit & tail detection
@@ -39,9 +39,9 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames):
         img_frame_original = video.read()[1]
         img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
         tc=trajectories[i,0,:]
-        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,0))
+        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,0,generateOutVideo))
         tc=trajectories[i,1,:]
-        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,1))
+        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,1,generateOutVideo))
 
     return asp
     
@@ -50,14 +50,16 @@ def storeOutputFFF(fff,theArgs,que): #add a argument to function for assigning a
     print 'MULTIPROCESSING: Launching %s in parallel '%fff.func_name
     que.put(fff(*theArgs)) #we're putting return value into queue
     
-def vidSplit(path,trajectories):
-    nframes=trajectories.shape[0]
+def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
+    if nframes==0:
+        nframes=trajectories.shape[0]
+    #nframes=1000
     npro=mp.cpu_count()-1
     listOf_FuncAndArgLists=[]
     chunkSize=np.floor(nframes/npro)
     for i in range(npro):
         
-        listOf_FuncAndArgLists.append([get_AnimalShapeParameters,path,trajectories,i*chunkSize,chunkSize])
+        listOf_FuncAndArgLists.append([get_AnimalShapeParameters,path,trajectories,i*chunkSize,chunkSize,generateOutVideo])
         
     queues=[mp.Queue() for fff in listOf_FuncAndArgLists] #create a queue object for each function
     jobs = [mp.Process(target=storeOutputFFF,args=[funcArgs[0],funcArgs[1:],queues[iii]]) for iii,funcArgs in enumerate(listOf_FuncAndArgLists)]
@@ -107,12 +109,9 @@ def asp_cleanUp(asp):
     #deviation of an1 from an2 centroid
     asp[1].deviation=geometry.smallest_angle_difference_degrees(b,acc_2to1)  
     asp[0].deviation=geometry.smallest_angle_difference_degrees(a,acc_1to2)
-
-    ang2=np.array(asp[1].spine_angles_all)
-    ang3=np.mod(ang2,180).T
-    ang3[:,collision_frames]=np.nan
     
-
+    asp[0].baseline=acc_1to2
+    asp[1].baseline=acc_2to1
     asp[0].allDist[collision_frames,:]=np.nan
     asp[1].allDist[collision_frames,:]=np.nan
 
@@ -127,11 +126,13 @@ class AnimalShapeParameters(object):
         
         self.trajectory=np.array([x.trajectory for x in [item for sublist in asp_f for item in sublist]][animal::2])
         self.skel_smooth_all=np.array([x.skel_smooth_all for x in [item for sublist in asp_f for item in sublist]][animal::2])
-        self.spine_angles_all=np.array([x.spine_angles_all for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        #self.spine_angles_all=np.array([x.spine_angles_all for x in [item for sublist in asp_f for item in sublist]][animal::2])
         self.fish_orientation_elipse=np.array([x.fish_orientation_elipse for x in [item for sublist in asp_f for item in sublist]][animal::2])
         self.allDist=np.array([x.allDist for x in [item for sublist in asp_f for item in sublist]][animal::2])
         self.centroidContour=np.array([x.centroidContour for x in [item for sublist in asp_f for item in sublist]][animal::2])
-        
+        self.frame=np.array([x.i for x in [item for sublist in asp_f for item in sublist]][animal::2])
+        if asp_f[0][0].generateOutVideo:
+            self.frAll_rot=np.array([x.frAll_rot for x in [item for sublist in asp_f for item in sublist]][animal::2])
         
 class AnimalShapeParameters_f(object):
         
@@ -154,7 +155,7 @@ class AnimalShapeParameters_f(object):
         self.generateOutVideo=generateOutVideo
         self.i=i
         self.animal=animal
-        
+
         if generateOutVideo:
             self.frAll_rot=np.zeros((cropSize,cropSize),dtype='uint8')
         
@@ -222,7 +223,8 @@ class AnimalShapeParameters_f(object):
             self.spine_angles_all=skel_angles
             if skel_smooth is not None:
                 skel_smooth=np.roll(skel_smooth,1,axis=1)
-                cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
+                if self.generateOutVideo:
+                    cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
                 for j in range(len(skel_smooth)):
                     try:
                         self.allDist[j]=geometry.distance_point_line(skel_smooth[j],skel_smooth[0],skel_smooth[-1])
@@ -239,7 +241,7 @@ class AnimalShapeParameters_f(object):
         
                 
         if self.generateOutVideo:
-            self.frAll_rot[:,:,i]=img_rot_binary    
+            self.frAll_rot[:,:]=img_rot_binary    
 
     def get_tail_tip_polygon(self,contour,epsilonFactor=0.02):         
     
