@@ -21,7 +21,7 @@ import scipy.stats as sta
 if __name__ == '__main__':
     mp.freeze_support()
     reread=1
-    numframes=1000 #0 = all
+    numframes=5000 #0 = all
 
          
     if reread:

@@ -72,12 +72,12 @@ class experiment(object):
         #rawTra=rawTra[LastNan:,:,:]
         self.skipNanInd=LastNan
 
-        maxPixel=np.nanmax(self.rawTra,0)
-        minPixel=np.nanmin(self.rawTra,0)
-        self.expInfo.trajectoryDiameterPx=np.mean(maxPixel-minPixel)
+        self.maxPixel=np.nanmax(self.rawTra,0)
+        self.minPixel=np.nanmin(self.rawTra,0)
+        self.expInfo.trajectoryDiameterPx=np.mean(self.maxPixel-self.minPixel)
         #expInfo.pxPmm=expInfo.trajectoryDiameterPx/expInfo.arenaDiameter_mm
         self.expInfo.pxPmm=8.6
-        self.expInfo.arenaCenterPx=np.mean(maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
+        self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
         
         
         #proceed with animal-pair analysis if there is more than one trajectory

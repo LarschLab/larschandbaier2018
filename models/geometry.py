@@ -184,14 +184,18 @@ class Vector(object):
         return Vector(self.x, self.y)
 
     def draw(self,img, origin):
-        origin = Vector(410 / 2, 350 / 2)
-        cv2.circle(img, ((int)(self.x+origin.x), (int)(self.y + origin.y)), 1, (255,255,0))
-        cv2.circle(img, (origin.x, origin.y), 1, (0, 0, 255))
+        #origin = Vector(410 / 2, 350 / 2)
+        cv2.circle(img, ((int)(self.x+origin.x), (int)(self.y + origin.y)), 2, (255,255,0))
+        cv2.circle(img, (origin.x, origin.y), 2, (0, 0, 255))
         cv2.line(img, (origin.x, origin.y), ((int)(self.x+origin.x), (int)(self.y + origin.y)),(0,0,255))
 
     @staticmethod
     def new_vector_from_point(point):
         return Vector(point.x, point.y)
+        
+    @staticmethod
+    def new_vector_from_angle(angle):
+        return Vector(np.sin(np.deg2rad(angle)),np.cos(np.deg2rad(angle)))
 
     @staticmethod
     def new(x,y):
