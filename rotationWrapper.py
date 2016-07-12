@@ -20,7 +20,7 @@ import scipy.stats as sta
 
 if __name__ == '__main__':
     mp.freeze_support()
-    reread=1
+    reread=0
     numframes=5000 #0 = all
 
          
@@ -54,6 +54,7 @@ if __name__ == '__main__':
     plt.figure()
     n, bins, patches =plt.hist(asp[0].deviation,bins=range(-180,180,1), normed=1, histtype='step')
     n, bins, patches =plt.hist(asp[1].deviation,bins=range(-180,180,1), normed=1, histtype='step')
+    plt.title('errorAngle all frames')    
     
     animal_dif=asp[0].centroidContour - asp[1].centroidContour
     dist=np.sqrt(animal_dif[:,0]**2 + animal_dif[:,1]**2)
@@ -64,14 +65,16 @@ if __name__ == '__main__':
 
     n1, bins, patches =plt.hist(asp[0].deviation[near],bins=range(-180,180,1), normed=1, histtype='step')
     n2, bins, patches =plt.hist(asp[1].deviation[near],bins=range(-180,180,1), normed=1, histtype='step')
+    plt.title('errorAngle dist<260')
     
     
+    # tail beat & bout analysis
     ad=asp[0].allDist.T
-    
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.imshow(ad)
     ax.set_aspect('auto')
+    plt.title('tail segment distance to mid line aka tail deflection')
     
     plt.figure()
     tail_curve_1=np.nanmean(asp[0].allDist.T,axis=0)
@@ -79,85 +82,105 @@ if __name__ == '__main__':
     #detect bouts
     bout_start=peakdet.detect_peaks(tail_curve_1,1,8)
     plt.plot(bout_start,tail_curve_1[bout_start],'o')
-
-    d_head_sm=geometry.smallest_angle_difference_degrees(asp[0].fish_orientation_elipse[:-1],asp[0].fish_orientation_elipse[1:])
-    d_head_sm=np.abs(d_head_sm)
-    d_heading_norm=d_head_sm/np.nanmax(d_head_sm)*np.nanmax(tail_curve_1)
-    plt.plot(d_heading_norm,'-') 
-
-    plt.figure()
-    plt.hist(d_head_sm,bins=range(360))
+    plt.title('tail deflection animal 0 -> peaks = bout start')
+    
+#    #for comparison: change in heading - should coincide with tail beats
+#    plt.figure()
+#    d_head_sm=geometry.smallest_angle_difference_degrees(asp[0].fish_orientation_elipse[:-1],asp[0].fish_orientation_elipse[1:])
+#    d_head_sm=np.abs(d_head_sm)
+#    d_heading_norm=d_head_sm/np.nanmax(d_head_sm)*np.nanmax(tail_curve_1)
+#    plt.plot(d_heading_norm,'-') 
+#
+#    plt.figure()
+#    plt.hist(d_head_sm,bins=range(180))
 
     
 
 
     
     ##bout analysis
+    #compare error angle before vs after each bout
+    #(error angle is called 'deviation' in asp class)
+    
     i=0
-    orientation_before=np.nanmedian([asp[0].deviation[b-6:b-3] for b in bout_start[1:-2]],axis=1)
-    orientation_after=np.nanmedian([asp[0].deviation[b+3:b+6] for b in bout_start[1:-2]],axis=1)
-    d_ori=np.diff(np.abs([orientation_before,orientation_after]).T,axis=1)
-    #d_ori=geometry.smallest_angle_difference_degrees(orientation_before,orientation_after)
-    ##alternative d_ori 
+    error_before=np.nanmedian([asp[0].deviation[b-6:b-3] for b in bout_start[1:-2]],axis=1)
+    error_after=np.nanmedian([asp[0].deviation[b+3:b+6] for b in bout_start[1:-2]],axis=1)
+    d_error=np.diff(np.abs([error_before,error_after]).T,axis=1)
+
+    ##alternative d_error 
     #considering instantaneous positions of both animals during the bout.    
-    plt.figure()   
-    n1, bins, patches =plt.hist(d_ori,bins=range(-180,180,1), normed=1, histtype='step')    
     asp=AnimalShapeParameters.asp_cleanUp(asp)
+    #baseline is orientation of vector from ainimal 0 to animal 1
     baseline1=[asp[0].baseline[b] for b in bout_start]
+    #heading is median animal orientation
     heading_before=np.nanmedian([asp[0].fish_orientation_elipse[b-6:b-3] for b in bout_start[1:-2]],axis=1)
     heading_after=np.nanmedian([asp[0].fish_orientation_elipse[b+3:b+6] for b in bout_start[1:-2]],axis=1)
-    bearing_before=geometry.smallest_angle_difference_degrees(heading_before,baseline1[1:-2]) 
-    bearing_after=geometry.smallest_angle_difference_degrees(heading_after,baseline1[1:-2]) 
-    d_ori_inst=np.diff(np.abs([bearing_before,bearing_after]).T,axis=1)
+    #error(angle) is difference baseline-heading    
+    error_before=geometry.smallest_angle_difference_degrees(heading_before,baseline1[1:-2]) 
+    error_after=geometry.smallest_angle_difference_degrees(heading_after,baseline1[1:-2]) 
+    d_error_inst=np.diff(np.abs([error_before,error_after]).T,axis=1)
     
     plt.figure()
-    n1, bins, patches =plt.hist(bearing_before,bins=range(-180,180,10), normed=1, histtype='step')    
-    n1, bins, patches =plt.hist(bearing_after,bins=range(-180,180,10), normed=1, histtype='step')    
+    n1, bins, patches =plt.hist(error_before,bins=range(-180,180,5), normed=1, histtype='step')    
+    n1, bins, patches =plt.hist(error_after,bins=range(-180,180,5), normed=1, histtype='step')    
+    plt.title('animal 0 error angle before vs after bout (all frames)')
 
     dist_at_bout=dist[bout_start]
     near=dist_at_bout<260
     
     plt.figure()
-    n1, bins, patches =plt.hist(bearing_before[near],bins=range(-180,180,10), normed=1, histtype='step')    
-    n1, bins, patches =plt.hist(bearing_after[near],bins=range(-180,180,10), normed=1, histtype='step')    
+    n1, bins, patches =plt.hist(error_before[near],bins=range(-180,180,5), normed=1, histtype='step')    
+    n1, bins, patches =plt.hist(error_after[near],bins=range(-180,180,5), normed=1, histtype='step')    
+    plt.title('animal 0 error angle before vs after bout (dist<260)')
 
     
     plt.figure()   
-    n1, bins, patches =plt.hist(d_ori_inst,bins=range(-180,180,1), normed=1, histtype='step')    
+    n1, bins, patches =plt.hist(d_error_inst,bins=range(-100,100,1), normed=1, histtype='step')    
     plt.plot([0,0], [0, np.max(n1)], 'k:', lw=3)
-    
+    plt.title('animal 0 change in error angle before vs after bout (instantaneous, all frames)')
+
+
     plt.figure()   
-    n1, bins, patches =plt.hist(d_ori,bins=range(-180,180,1), normed=1, histtype='step')    
+    n1, bins, patches =plt.hist(d_error,bins=range(-100,100,1), normed=1, histtype='step')    
     plt.plot([0,0], [0, np.max(n1)], 'k:', lw=3)
-    
+    plt.title('animal 0 change in error angle before vs after bout (target moving, all frames)')
+
+
     #is bout-directed-ness modulated with animal distance?    
     dist_at_bout=dist[bout_start[1:-2]]
         
     plt.figure()
-    plt.scatter(dist_at_bout,d_ori_inst)
+    plt.scatter(dist_at_bout,d_error_inst)
+    plt.title('change in error angle over distance (instantaneous, all frames)')
+
     
-    plt.figure()   
-    n1, bins, patches =plt.hist(d_ori_inst[dist_at_bout<260],bins=range(-180,180,1), normed=1, histtype='step')   
-    plt.plot([0,0], [0, np.max(n1)], 'k:', lw=3)
+    
+    #variable binning - spaced to fill each bin with similar number of data points
+    mapBinsx=(np.sort(dist_at_bout)[::int(dist_at_bout.shape[0]/180)]).astype('int')
 
-    mapBinsx=np.arange(0,1500,2)
-    mapBinsy=np.arange(-120,120,10)
 
-    bm=sta.binned_statistic(dist_at_bout,d_ori_inst[:,0],bins=mapBinsx,statistic='mean')[0]
+    bm=sta.binned_statistic(dist_at_bout,d_error_inst[:,0],bins=mapBinsx,statistic='mean')[0]
     plt.figure()
-    plt.plot(mapBinsx[:-1]+5,bm)
+    plt.plot(mapBinsx[:-1]+np.diff(mapBinsx)/2,bm,'.')
     plt.plot([mapBinsx[0],mapBinsx[-1]], [0, 0], 'k:', lw=3)
+    plt.title('animal 0 change in error angle -binned mean - variable bins')
 
-    bma=np.zeros((mapBinsx.shape[0]-1,mapBinsy.shape[0]-1))
+    #plot this data in heat map style
+    #effectively a map of histogramms for each distance bin of the data
+    #normalize each column by # of data points
+    #mapBinsx=np.arange(0,1500,2)
+    mapBinsy=np.arange(-120,120,20)
+    bma=np.zeros((mapBinsx[-1],mapBinsy.shape[0]-1))
 
     for i in range(mapBinsx.shape[0]-1):
+        #select bouts within distance bin 
         mask1=np.multiply(dist_at_bout[:-1]>mapBinsx[i] , dist_at_bout[:-1]<mapBinsx[i+1])
-        
-        bma[i,:]=np.histogram(d_ori_inst[mask1,0],bins=mapBinsy,normed=1)[0]
+        binHist=np.histogram(d_error_inst[mask1,0],bins=mapBinsy,normed=1)[0]
+        nCols=mapBinsx[i+1]-mapBinsx[i]
+        bma[mapBinsx[i]:mapBinsx[i+1],:]=np.tile(binHist,(nCols,1))
     
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    
     ax.imshow(bma.T, extent=[mapBinsx[0],mapBinsx[-1],mapBinsy[0],mapBinsy[-1]],origin='lower')
     ax.set_aspect('auto')
     plt.plot([mapBinsx[0],mapBinsx[-1]], [0, 0], 'k:', lw=3)
@@ -166,10 +189,12 @@ if __name__ == '__main__':
         window = np.ones(int(window_size))/float(window_size)
         return np.convolve(interval, window, 'same')
     
-    bm_av=movingaverage(bm,5)
-    plt.plot(mapBinsx[:-1]+5,bm_av,'r', lw=4)
-    plt.ylim([mapBinsy[0],mapBinsy[-1]])
+    bm_av=movingaverage(bm,3)
+    plt.plot(mapBinsx[:-1]+np.diff(mapBinsx)/2,bm_av,'r', lw=4)
+    plt.ylim([-50,50])
     plt.xlim([mapBinsx[0],mapBinsx[-1]])
+    plt.title('animal 0 change in error angle -binned mean - variable bins')
+
     
     #is bout interval modulated with animal distance? -->seems not!    
     bout_interval=np.diff(bout_start)
@@ -177,22 +202,27 @@ if __name__ == '__main__':
         
     plt.figure()
     plt.scatter(dist_at_bout[:-1],bout_interval)
-    
-    mapBins=np.arange(0,2000,50)
-    bm=sta.binned_statistic(dist_at_bout[:-1],bout_interval,bins=mapBins)[0]
-    plt.figure()
-    plt.plot(bm)
-    
-    mapBinsx=np.arange(0,2000,50)
-    mapBinsy=np.arange(0,100,5)
-    
-    bma=np.zeros((mapBinsx.shape[0]-1,mapBinsy.shape[0]-1))
+    plt.title('bout interval over animal distance')
 
-    for i in range(mapBinsx.shape[0]-1):
-        mask=np.multiply(dist_at_bout[:-1]>mapBinsx[i] , dist_at_bout[:-1]<mapBinsx[i+1])
-        bma[i,:]=np.histogram(bout_interval[mask],bins=mapBinsy,normed=1)[0]
+
+    #mapBins=np.arange(0,2000,50)
+    mapBinsx=(np.sort(dist_at_bout)[::int(dist_at_bout.shape[0]/180)]).astype('int')
+
+    bm=sta.binned_statistic(dist_at_bout[:-1],bout_interval,bins=mapBinsx)[0]
     plt.figure()
-    plt.imshow(bma.T)
+    plt.plot(mapBinsx[:-1]+np.diff(mapBinsx)/2,bm,':.')
+    plt.title('bout interval over animal distance - binned mean')
+
+    #heat map - not useful, needs bin approach analogous to above if picked up later
+#    mapBinsy=np.arange(0,100,5)
+#    
+#    bma=np.zeros((mapBinsx.shape[0]-1,mapBinsy.shape[0]-1))
+#
+#    for i in range(mapBinsx.shape[0]-1):
+#        mask=np.multiply(dist_at_bout[:-1]>mapBinsx[i] , dist_at_bout[:-1]<mapBinsx[i+1])
+#        bma[i,:]=np.histogram(bout_interval[mask],bins=mapBinsy,normed=1)[0]
+#    plt.figure()
+#    plt.imshow(bma.T)
     
     #is bout interval modulated with relative orientation? (only considering 'close animals')
     #--> maybe
@@ -207,13 +237,16 @@ if __name__ == '__main__':
     plt.figure()
     plt.scatter(dev_at_bout,bout_interval)
     
-    mapBinsx=np.arange(-180,180,20)
+    #mapBinsx=np.arange(-180,180,20)
+    mapBinsx=(np.sort(dev_at_bout)[::int(dev_at_bout.shape[0]/40)]).astype('int')
+
     mapBinsy=np.arange(0,40,1)
 
-    bm=sta.binned_statistic(dev_at_bout,bout_interval,bins=mapBinsx)[0]
+    bm=sta.binned_statistic(dev_at_bout,bout_interval,bins=mapBinsx,statistic='median')[0]
     plt.figure()
-    plt.plot(mapBinsx[:-1]+5,bm)
-    
+    plt.plot(mapBinsx[:-1]+np.diff(mapBinsx)/2,bm,'.:')
+    plt.title('animal 0 bout interval over error angle - binned median')
+
 
     
     bma=np.zeros((mapBinsx.shape[0]-1,mapBinsy.shape[0]-1))

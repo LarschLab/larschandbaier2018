@@ -183,11 +183,11 @@ class Vector(object):
     def copy(self):
         return Vector(self.x, self.y)
 
-    def draw(self,img, origin):
+    def draw(self,img, origin,col=(0,0,0)):
         #origin = Vector(410 / 2, 350 / 2)
-        cv2.circle(img, ((int)(self.x+origin.x), (int)(self.y + origin.y)), 2, (255,255,0))
-        cv2.circle(img, (origin.x, origin.y), 2, (0, 0, 255))
-        cv2.line(img, (origin.x, origin.y), ((int)(self.x+origin.x), (int)(self.y + origin.y)),(0,0,255))
+        cv2.circle(img, ((int)(self.x+origin.x), (int)(self.y + origin.y)), 3, col,-1)
+        #cv2.circle(img, (origin.x, origin.y), 2, (0, 0, 255))
+        cv2.line(img, (origin.x, origin.y), ((int)(self.x+origin.x), (int)(self.y + origin.y)),col)
 
     @staticmethod
     def new_vector_from_point(point):
