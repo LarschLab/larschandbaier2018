@@ -6,7 +6,7 @@ def plotMapWithXYprojections(Map2D,projectWidth,targetSubplot,mapLim=31,projecti
     #plot a heatmap with mean 'projections' left and bottom of heatmap
     inner_grid = gridspec.GridSpecFromSubplotSpec(3, 3,subplot_spec=targetSubplot,wspace=0.05, hspace=0.05)
     plt.subplot(inner_grid[:-1,:-1])   
-    plt.imshow(Map2D,interpolation='gaussian', extent=[-mapLim,mapLim,-mapLim,mapLim],clim=(-projectionLim, projectionLim),origin='lower')
+    plt.imshow(Map2D,cmap="bwr",interpolation='gaussian', extent=[-mapLim,mapLim,-mapLim,mapLim],clim=(-projectionLim, projectionLim),origin='lower')
     #plt.title('accel=f(pos_n)')
     plt.ylabel('y [mm]')
     plt.tick_params(
@@ -27,7 +27,7 @@ def plotMapWithXYprojections(Map2D,projectWidth,targetSubplot,mapLim=31,projecti
     avgRange=np.arange(mapLim-projectWidth,mapLim+projectWidth)
     yprofile=np.nanmean(Map2D[:,avgRange],axis=1)
     x=np.arange(np.shape(yprofile)[0])-(np.ceil(np.shape(yprofile)[0])/2)
-    plt.plot(yprofile,x,'b.',markersize=2)
+    plt.plot(yprofile,x,'b.-',markersize=2)
     plt.xlim([-projectionLim, projectionLim])
     plt.ylim([x[0],x[-1]])
     plt.tick_params(
@@ -43,7 +43,7 @@ def plotMapWithXYprojections(Map2D,projectWidth,targetSubplot,mapLim=31,projecti
     plt.subplot(inner_grid[-1,:-1])
     yprofile=np.nanmean(Map2D[avgRange,:],axis=0)
     x=np.arange(np.shape(yprofile)[0])-(np.ceil(np.shape(yprofile)[0])/2)
-    plt.plot(x,yprofile,'b.',markersize=2)
+    plt.plot(x,yprofile,'b.-',markersize=2)
     plt.xlabel('x [mm]')
     plt.ylabel('accel')
     plt.ylim([-projectionLim, projectionLim]) 

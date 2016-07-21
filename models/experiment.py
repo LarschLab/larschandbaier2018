@@ -51,7 +51,7 @@ class ExperimentMeta(object):
             self.AnSizeFilePath = AnSizeFilePath
         
         self.dataPath = os.path.join(head,'analysisData.mat')
-
+        self.aspPath=os.path.join(head,tail[:-4]+'_asp.npz')
 
 
         
@@ -69,7 +69,7 @@ class experiment(object):
         else:
             LastNan=np.max(nanInd)+1
         
-        #rawTra=rawTra[LastNan:,:,:]
+        self.rawTra[:LastNan,:,:]=0
         self.skipNanInd=LastNan
 
         self.maxPixel=np.nanmax(self.rawTra,0)
@@ -230,7 +230,10 @@ class experiment(object):
         a1=self.Pair.animals[0].ForceMat
         a2=self.Pair.animals[1].ForceMat
         meanForceMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
-        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[9],31,0.01)
+        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[9],31,10)
+        
+        
+        
         
         plt.subplot(4,4,11)
         plt.cla()
@@ -244,3 +247,27 @@ class experiment(object):
         self.pdfPath=self.expInfo.aviPath[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
         with PdfPages(self.pdfPath) as pdf:
             pdf.savefig()
+            
+#        plt.figure()
+#        a1=self.Pair.animals[0].ForceMat
+#        a2=self.Pair.animals[1].ForceMat
+#        meanForceMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
+#        outer_grid = gridspec.GridSpec(1, 1)
+#        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[0],31,10)
+#        
+#        plt.figure()
+#        a1=self.Pair.animals[0].ForceMat_speed
+#        a2=self.Pair.animals[1].ForceMat_speed
+#        meanForceMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
+#        outer_grid = gridspec.GridSpec(1, 1)
+#        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[0],31,.1)
+#        
+#        plt.figure()
+#        a1=self.Pair.animals[0].ForceMat_turn
+#        a2=self.Pair.animals[1].ForceMat_turn
+#        meanForceMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
+#        outer_grid = gridspec.GridSpec(1, 1)
+#        johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[0],31,.1)
+        
+        
+        

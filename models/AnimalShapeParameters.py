@@ -98,9 +98,30 @@ def asp_cleanUp(asp):
     
     a[collision_frames]=np.nan
     b[collision_frames]=np.nan
-
+    
+    asp[0].fish_orientation_elipse[collision_frames]=np.nan
+    asp[1].fish_orientation_elipse[collision_frames]=np.nan
+    
+    p1=asp[0].centroidContour
+    p2=asp[1].centroidContour
+#
+#    p2b=np.roll(p2,experiment.sPair.shiftIndex[2],axis=0)
+#    bb=np.roll(b,experiment.sPair.shiftIndex[2],axis=0)
+#    
+#    angle_centroid_connectb=geometry.get_angle_list(p1,p2b)
+#    
+#    #flip angles along x axis for consistent angle reference
+#    acc_1to2b=np.mod(180-angle_centroid_connectb,360)
+#    acc_2to1b=np.mod(180+acc_1to2b,360)
+#    
+#    #deviation of an1 from an2 centroid
+#    dev1b=geometry.smallest_angle_difference_degrees(bb,acc_2to1b)  
+#    dev0b=geometry.smallest_angle_difference_degrees(a,acc_1to2b)
+#    
+#    
+    
     #compute delta heading as difference of heading to angle between centroids of the two animals
-    angle_centroid_connect=geometry.get_angle_list(asp[0].centroidContour,asp[1].centroidContour)
+    angle_centroid_connect=geometry.get_angle_list(p1,p2)
     
     #flip angles along x axis for consistent angle reference
     acc_1to2=np.mod(180-angle_centroid_connect,360)
@@ -133,7 +154,8 @@ class AnimalShapeParameters(object):
         self.frame=np.array([x.i for x in [item for sublist in asp_f for item in sublist]][animal::2])
         if asp_f[0][0].generateOutVideo:
             self.frAll_rot=np.array([x.frAll_rot for x in [item for sublist in asp_f for item in sublist]][animal::2])
-        
+            self.frAll_rot_lg=np.array([x.frAll_rot_lg for x in [item for sublist in asp_f for item in sublist]][animal::2])
+
 class AnimalShapeParameters_f(object):
         
     def __init__(self,trajectory,img_frame_original,i,animal,generateOutVideo=0):
@@ -158,6 +180,8 @@ class AnimalShapeParameters_f(object):
 
         if generateOutVideo:
             self.frAll_rot=np.zeros((cropSize,cropSize),dtype='uint8')
+            self.frAll_rot_lg=np.zeros((900,900,3),dtype='uint8')
+            img_rot_binary_lg=np.zeros((900,900,3),dtype='uint8')
         
         #if np.mod(i,100)==0:
         #    print i,"         \r",
@@ -224,7 +248,11 @@ class AnimalShapeParameters_f(object):
             if skel_smooth is not None:
                 skel_smooth=np.roll(skel_smooth,1,axis=1)
                 if self.generateOutVideo:
+                    img_rot_binary_lg=cv2.resize(img_rot_binary,(900,900),interpolation = cv2.INTER_CUBIC)
                     cv2.polylines(img_rot_binary,np.int32(skel_smooth).reshape((-1,1,2)),True,(100,100,100))
+                    
+                    img_rot_binary_lg=cv2.cvtColor(img_rot_binary_lg,cv2.COLOR_GRAY2BGR)
+                    cv2.polylines(img_rot_binary_lg,np.int32(skel_smooth).reshape((-1,1,2))*3,True,(255,0,0),thickness = 3)
                 for j in range(len(skel_smooth)):
                     try:
                         self.allDist[j]=geometry.distance_point_line(skel_smooth[j],skel_smooth[0],skel_smooth[-1])
@@ -241,7 +269,8 @@ class AnimalShapeParameters_f(object):
         
                 
         if self.generateOutVideo:
-            self.frAll_rot[:,:]=img_rot_binary    
+            self.frAll_rot[:,:]=img_rot_binary   
+            self.frAll_rot_lg=img_rot_binary_lg
 
     def get_tail_tip_polygon(self,contour,epsilonFactor=0.02):         
     

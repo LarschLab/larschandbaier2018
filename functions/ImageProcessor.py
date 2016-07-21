@@ -342,5 +342,5 @@ def crop_zero_pad(img_input,xy_point,cropSize=300):
     
     crop_data = img_input[yminget:ymaxget,xminget:xmaxget]
 
-    img_crop[ymin:ymax,xmin:xmax] = crop_data
+    img_crop[ymin:ymin+crop_data.shape[0],xmin:xmin+crop_data.shape[1]] = crop_data
     return img_crop

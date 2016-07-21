@@ -15,10 +15,10 @@ from models.animal import Animal
 class Pair(object):
     #Class for trajectories of one pair of animals.
     #Calculation and storage of dependent time series: speed, heading, etc.
-    def __init__(self, trajectories, expInfo):
+    def __init__(self, trajectories, expInfo,shiftIndex=0,shiftRun=0):
         self.animals=[]
-        self.animals.append(Animal(1,trajectories[:,0,:],expInfo))
-        self.animals.append(Animal(2,trajectories[:,1,:],expInfo))
+        self.animals.append(Animal(0,trajectories[:,0,:],expInfo,shiftRun=shiftRun))
+        self.animals.append(Animal(1,trajectories[:,1,:],expInfo,shiftIndex,shiftRun=shiftRun))
         self.get_stack_order()
         self.get_IAD()
         
@@ -45,6 +45,7 @@ class Pair(object):
     def get_IAD(self):
         dist=Trajectory()
         dist.xy=self.animals[0].position.xy-self.animals[1].position.xy
+#        dist.xy=self.animals[0].centroidContour-self.animals[1].centroidContour
         self.IAD = np.sqrt(dist.x()**2 + dist.y()**2) 
     
         #absolute inter animal distance IAD
@@ -107,14 +108,16 @@ class shiftedPair(object):
         self.nRuns=10
         self.minShift=5*60*expInfo.fps
         self.sPair=[]
+        self.shiftIndex=[]
         #generate nRuns instances of Pair class with one animal time shifted against the other
         for i in range(self.nRuns):
-            traShift=pair.get_var_from_all_animals(['rawTra','xy'])
+            tra=pair.get_var_from_all_animals(['rawTra','xy'])
             
-            shiftIndex=int(random.uniform(self.minShift,traShift.shape[0]-self.minShift))
+            shiftIndex=int(random.uniform(self.minShift,pair.IAD.shape[0]-self.minShift))
             #time-rotate animal 0, keep animal 1 as is
-            traShift[:,0,:]=np.roll(traShift[:,0,:],shiftIndex,axis=0)
-            self.sPair.append(Pair(traShift,expInfo))
+            #traShift[:,0,:]=np.roll(traShift[:,0,:],shiftIndex,axis=0)
+            self.sPair.append(Pair(tra,expInfo,shiftIndex=shiftIndex,shiftRun=i))
+            self.shiftIndex.append(shiftIndex)
             
         #calculate mean and std IAD for the goup of shifted instances
         self.spIAD_m = np.nanmean([x.IAD_m for x in self.sPair])

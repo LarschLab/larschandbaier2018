@@ -17,11 +17,13 @@ import multiprocessing as mp
 import functions.peakdet as peakdet
 import pickle
 import scipy.stats as sta
+import functions.matrixUtilities_joh as mu
+
 
 if __name__ == '__main__':
     mp.freeze_support()
-    reread=0
-    numframes=5000 #0 = all
+    reread=1
+    numframes=50 #0 = all
 
          
     if reread:
@@ -39,6 +41,8 @@ if __name__ == '__main__':
         pf = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:/data/b/2016/20160311_arenaSize/b/1/'))
         f=open(pf,'r')
         asp_f=pickle.load(f)
+        af=pf[:-22]+'.avi'
+        experiment=xp.experiment(af)
         if type(asp_f[0]) is list: #this collection still contains individual animal shape objects for each frame
             asp=[]            
             asp.append(AnimalShapeParameters.AnimalShapeParameters(asp_f,0))
@@ -51,10 +55,34 @@ if __name__ == '__main__':
             asp=asp_f
 #b=hhh[0] 
 #
+            
+            
+    #collect asp variables for storage
+    ori=np.array([a.fish_orientation_elipse for a in asp]).astype('float32')
+        
+    tailCurvature=np.array([a.allDist.T for a in asp]).astype('float32').T
+    tailCurvature_mean=np.nanmean(tailCurvature,axis=1)
+    
+    centroidContour=np.array([a.centroidContour.T for a in asp]).astype('float32').T
+    
+    head, tail = os.path.split(af)
+    head=os.path.normpath(head)
+    aspPath = os.path.join(head,tail[:-4]+'_asp.npz')
+    #np.savez('d:/zzsaveTest',tailCurvature_mean=tailCurvature_mean,ori=ori,centroidContour=centroidContour)
+
+    np.savez(aspPath,tailCurvature_mean=tailCurvature_mean,ori=ori,centroidContour=centroidContour)
+
     plt.figure()
-    n, bins, patches =plt.hist(asp[0].deviation,bins=range(-180,180,1), normed=1, histtype='step')
-    n, bins, patches =plt.hist(asp[1].deviation,bins=range(-180,180,1), normed=1, histtype='step')
+    n, bins, patches =plt.hist(asp[0].deviation, bins=range(-180,180,1), normed=1, histtype='step',lw=3)
+    n, bins, patches =plt.hist(asp[1].deviation,bins=range(-180,180,1), normed=1, histtype='step',lw=3)
     plt.title('errorAngle all frames')    
+    
+#    plt.figure()
+#    n, bins, patches =plt.hist(dev0b, bins=range(-180,180,1), normed=1, histtype='step')
+#    n, bins, patches =plt.hist(dev1b,bins=range(-180,180,1), normed=1, histtype='step')
+#    plt.title('errorAngle all frames')   
+#    
+#    
     
     animal_dif=asp[0].centroidContour - asp[1].centroidContour
     dist=np.sqrt(animal_dif[:,0]**2 + animal_dif[:,1]**2)
@@ -63,27 +91,32 @@ if __name__ == '__main__':
     
     plt.figure()
 
-    n1, bins, patches =plt.hist(asp[0].deviation[near],bins=range(-180,180,1), normed=1, histtype='step')
-    n2, bins, patches =plt.hist(asp[1].deviation[near],bins=range(-180,180,1), normed=1, histtype='step')
-    plt.title('errorAngle dist<260')
+    n1, bins, patches =plt.hist(asp[0].deviation[near],bins=range(-180,180,1), normed=1, histtype='step',label='animal 1')
+    n2, bins, patches =plt.hist(asp[1].deviation[near],bins=range(-180,180,1), normed=1, histtype='step',label='animal 2')
+    plt.title(['errorAngle dist<'+str(int(260/8.6))])
+    plt.legend()
+    
+    
     
     
     # tail beat & bout analysis
     ad=asp[0].allDist.T
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.imshow(ad)
+    ax.imshow(ad,cmap='hot',clim=[0,10])
     ax.set_aspect('auto')
+    ax.grid(False)
+
     plt.title('tail segment distance to mid line aka tail deflection')
     
     plt.figure()
     tail_curve_1=np.nanmean(asp[0].allDist.T,axis=0)
-    plt.plot(tail_curve_1,'-') 
+    plt.plot(tail_curve_1,'-',label='tail curvature') 
     #detect bouts
     bout_start=peakdet.detect_peaks(tail_curve_1,1,8)
-    plt.plot(bout_start,tail_curve_1[bout_start],'o')
-    plt.title('tail deflection animal 0 -> peaks = bout start')
-    
+    plt.plot(bout_start,tail_curve_1[bout_start],'o',label='bouts')
+    plt.title('tail curvature animal 0 -> peaks = bout start')
+    plt.legend()
 #    #for comparison: change in heading - should coincide with tail beats
 #    plt.figure()
 #    d_head_sm=geometry.smallest_angle_difference_degrees(asp[0].fish_orientation_elipse[:-1],asp[0].fish_orientation_elipse[1:])
@@ -119,11 +152,23 @@ if __name__ == '__main__':
     error_before=geometry.smallest_angle_difference_degrees(heading_before,baseline1[1:-2]) 
     error_after=geometry.smallest_angle_difference_degrees(heading_after,baseline1[1:-2]) 
     d_error_inst=np.diff(np.abs([error_before,error_after]).T,axis=1)
+    d_error_inst2=np.diff(np.array([error_before,error_after]).T)
+    d_heading=geometry.smallest_angle_difference_degrees(heading_before,heading_after)
     
     plt.figure()
-    n1, bins, patches =plt.hist(error_before,bins=range(-180,180,5), normed=1, histtype='step')    
-    n1, bins, patches =plt.hist(error_after,bins=range(-180,180,5), normed=1, histtype='step')    
+    plt.scatter(error_before,d_heading)
+    bins=np.arange(-180,180,5)
+    plt.figure()
+    edhMap=plt.hist2d(error_before,d_heading,bins=bins)[0]
+    m=np.logical_and(np.isfinite(error_before)==True,np.isfinite(d_heading)==True)
+    sta.pearsonr(error_before[m],d_heading[m])
+ 
+    
+    plt.figure()
+    n1, bins, patches =plt.hist(error_before,bins=range(-180,180,5), normed=1, histtype='step',label='before bout')    
+    n1, bins, patches =plt.hist(error_after,bins=range(-180,180,5), normed=1, histtype='step',label='after bout')    
     plt.title('animal 0 error angle before vs after bout (all frames)')
+    plt.legend()
 
     dist_at_bout=dist[bout_start]
     near=dist_at_bout<260
@@ -170,19 +215,9 @@ if __name__ == '__main__':
     #normalize each column by # of data points
     #mapBinsx=np.arange(0,1500,2)
     mapBinsy=np.arange(-120,120,20)
-    bma=np.zeros((mapBinsx[-1],mapBinsy.shape[0]-1))
 
-    for i in range(mapBinsx.shape[0]-1):
-        #select bouts within distance bin 
-        mask1=np.multiply(dist_at_bout[:-1]>mapBinsx[i] , dist_at_bout[:-1]<mapBinsx[i+1])
-        binHist=np.histogram(d_error_inst[mask1,0],bins=mapBinsy,normed=1)[0]
-        nCols=mapBinsx[i+1]-mapBinsx[i]
-        bma[mapBinsx[i]:mapBinsx[i+1],:]=np.tile(binHist,(nCols,1))
-    
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.imshow(bma.T, extent=[mapBinsx[0],mapBinsx[-1],mapBinsy[0],mapBinsy[-1]],origin='lower')
-    ax.set_aspect('auto')
+    plt.figure()
+    plt.hist2d(dist_at_bout,np.squeeze(d_error_inst),bins=[mapBinsx,mapBinsy])
     plt.plot([mapBinsx[0],mapBinsx[-1]], [0, 0], 'k:', lw=3)
     
     def movingaverage(interval, window_size):
@@ -259,8 +294,46 @@ if __name__ == '__main__':
     plt.imshow(bma.T)
     
     
+    #is bout travel modulated with relative orientation? (only considering 'close animals')
     
+    a1=np.diff(experiment.Pair.animals[0].position.xy[bout_start,:],axis=0)
+    t1=mu.distance(*a1.T)
     
+
+    
+    dist_at_bout=dist[bout_start]
+    dev_at_bout=asp[0].deviation[bout_start]
+    distLim=260
+    distMask=dist_at_bout<distLim
+    #dev_at_bout=dev_at_bout[distMask[:-1]]
+    #t1=t1[distMask]
+    dev_at_bout=dev_at_bout[:-1]
+    dev_at_bout=np.mod(dev_at_bout+360,360)-180 #this is fudge, check!!!!
+
+    #mapBinsx=np.arange(-180,180,20)
+    mapBinsx=(np.sort(dev_at_bout)[::int(dev_at_bout.shape[0]/40)]).astype('int')
+
+    mapBinsy=np.arange(0,40,1)
+
+    bm=sta.binned_statistic(dev_at_bout,t1,bins=mapBinsx,statistic='mean')[0]
+    plt.figure()
+    plt.plot(mapBinsx[:-1]+np.diff(mapBinsx)/2,bm,'.:',label='animal 1')
+    plt.title('bout travel over error angle - binned mean')
+    
+    tail_curve_2=np.nanmean(asp[1].allDist.T,axis=0)
+    #detect bouts
+    bout_start2=peakdet.detect_peaks(tail_curve_2,1,8)
+    a2=np.diff(experiment.Pair.animals[1].position.xy[bout_start2,:],axis=0)
+    t2=mu.distance(*a2.T)
+    dist_at_bout2=dist[bout_start2]
+    dev_at_bout2=asp[1].deviation[bout_start2]
+    dev_at_bout2=dev_at_bout2[:-1]
+    mapBinsx=(np.sort(dev_at_bout2)[::int(dev_at_bout2.shape[0]/40)]).astype('int')
+    mapBinsy=np.arange(0,40,1)
+    bm=sta.binned_statistic(dev_at_bout2,t2,bins=mapBinsx,statistic='mean')[0]
+    plt.plot(mapBinsx[:-1]+np.diff(mapBinsx)/2,bm,'.:',label='animal 2')
+    plt.legend()
+
     #
 #    
 #
