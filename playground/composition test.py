@@ -5,10 +5,10 @@ Created on Wed Jul 20 22:54:37 2016
 @author: johannes
 """
 import numpy as np
+from models.geometry import Trajectory
 
 class experiment:
-    def __init__(self,fn):
-        self.fn=fn
+    def __init__(self):
         self.numAn=2
         self.pair=[]
         
@@ -53,5 +53,7 @@ class animal:
     def joinPair(self,pair):
         self.pair=pair
         pair.addAnimal(self)
-        self.tra=pair.tra[:5,:,:]+1
+        
+    def rawTra(self):
+        return Trajectory(self.pair.tra)
         

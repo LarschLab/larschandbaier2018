@@ -7,7 +7,6 @@ import functions.plotFunctions_joh as johPlt
 import functions.randomDotsOnCircle as randSpacing
 import functions.video_functions as vf
 from models.pair import Pair
-from models.pair import shiftedPair
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -21,6 +20,7 @@ class ExperimentMeta(object):
         self.arenaCenterPx = [0,0] #assign later from class 'Pair'
         self.pxPmm = 0 #assign later from class 'Pair'
         
+        
         #If a video file name is passed, collect video parameters
         if path.endswith('.avi') or path.endswith('.mp4'):
             self.aviPath = path
@@ -33,7 +33,8 @@ class ExperimentMeta(object):
             #self.date=vp['TAG:date']
         else:
             self.fps=30
-            
+        
+        self.minShift=5*60*self.fps
         #concatenate dependent file paths (trajectories, pre-analysis)
         head, tail = os.path.split(path)
         head=os.path.normpath(head)
@@ -58,6 +59,8 @@ class ExperimentMeta(object):
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
     def __init__(self,path):
+        self.n_shift_Runs=10
+        self.sPair=[]
         self.expInfo=ExperimentMeta(path)
         self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
         mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
@@ -78,30 +81,69 @@ class experiment(object):
         #expInfo.pxPmm=expInfo.trajectoryDiameterPx/expInfo.arenaDiameter_mm
         self.expInfo.pxPmm=8.6
         self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
-        
+        self.expInfo.numFrames=self.rawTra.shape[0]
+
+        self.load_animalShapeParameters()
         
         #proceed with animal-pair analysis if there is more than one trajectory
         if np.shape(self.rawTra)[1]>1:
-            self.Pair=Pair(self.rawTra,self.expInfo)
+            Pair(shift=False).linkExperiment(self)
         
             #self.AnShape=AnimalShapeParameters()
             
             #generate shifted control 'mock' pairs
-            self.sPair=shiftedPair(self.Pair,self.expInfo)
+            #generate nRuns instances of Pair class with one animal time shifted against the other
+            for i in range(self.n_shift_Runs):
+                Pair(shift=True).linkExperiment(self)
             
             #calculate mean IAD histogram for shifted pairs
             IADHistall=[]
-            IADHistall.append([x.IADhist[0:30*60*90] for x in self.sPair.sPair])
+            IADHistall.append([x.IADhist()[0:30*60*90] for x in self.sPair])
             self.spIADhist_m=np.nanmean(IADHistall,axis=1)            
             
-            self.ShoalIndex=(self.sPair.spIAD_m-self.Pair.IAD_m)/self.sPair.spIAD_m
+            self.ShoalIndex=(self.spIAD_m()-np.nanmean(self.pair.IAD()))/self.spIAD_m()
             #self.totalPairTravel=sum(self.Pair.totalTravel)
-            self.avgSpeed=self.Pair.avgSpeed
+            self.avgSpeed=self.pair.avgSpeed
             probTra=mat['probtrajectories']
             self.idQuality=np.mean(probTra[probTra>=0])*100
-            
+
+    def addPair(self,pair):
+        
+        if pair.shift:
+            self.sPair.append(pair)
+            return self.sPair[-1]
+        else:
+            self.pair=pair
+            return self.pair
+        
+    def spIAD_m(self):
+        x=np.nanmean([np.nanmean(x.IAD()) for x in self.sPair])
+        return x
+        
+    def spIAD_std(self):
+        x=np.nanstd([np.nanmean(x.IAD()) for x in self.sPair])
+        return x
+           
+    def load_animalShapeParameters(self):
+        
+        aspPath=self.expInfo.aspPath
+        self.haveASP=np.equal(~os.path.isfile(aspPath),-2)
+        
+        if self.haveASP:
+            npzfile = np.load(aspPath)
+            self.tailCurvature_mean=npzfile['tailCurvature_mean']
+            self.fish_orientation_elipse=npzfile['ori']
+            self.centroidContour=npzfile['centroidContour']
     
     def plotOverview(self,condition='notDefined'):
+        
+        for i in range(2):
+            self.pair.animals[i].plot_errorAngle()
+            
+        for j in range(10):
+            for i in range(2):
+                self.sPair[j].animals[i].plot_errorAngle()
+            
         outer_grid = gridspec.GridSpec(4, 4)        
         plt.figure(figsize=(8, 8))   
         #plt.text(0,0.95,path)
@@ -111,26 +153,26 @@ class experiment(object):
         
         plt.subplot(4,4,1,rasterized=True)
         plt.cla()
-        plt.plot(self.Pair.animals[0].position.x(),self.Pair.animals[0].position.y(),'b.',markersize=1,alpha=0.1)
-        plt.plot(self.Pair.animals[1].position.x(),self.Pair.animals[1].position.y(),'r.',markersize=1,alpha=0.1)
+        plt.plot(self.pair.animals[0].ts.position().x(),self.pair.animals[0].ts.position().y(),'b.',markersize=1,alpha=0.1)
+        plt.plot(self.pair.animals[1].ts.position().x(),self.pair.animals[1].ts.position().y(),'r.',markersize=1,alpha=0.1)
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         plt.title('raw trajectories')  
         
         plt.subplot(4,4,3)
         plt.cla()
-        PolhistBins=self.Pair.animals[0].PolhistBins
-        plt.step(PolhistBins[:-1], self.Pair.animals[0].Pol_n,'b',lw=2,where='mid')
-        plt.step(PolhistBins[:-1], self.Pair.animals[1].Pol_n,'r',lw=2,where='mid')
+        PolhistBins=self.pair.animals[0].ts.PolhistBins()
+        plt.step(PolhistBins[:-1], self.pair.animals[0].ts.Pol_n(),'b',lw=2,where='mid')
+        plt.step(PolhistBins[:-1], self.pair.animals[1].ts.Pol_n(),'r',lw=2,where='mid')
         plt.ylim([0, .1])
 
         
         
         #plot IAD time series
-        x=np.arange(float(np.shape(self.Pair.IAD)[0]))/(self.expInfo.fps*60)
+        x=np.arange(float(np.shape(self.pair.IAD())[0]))/(self.expInfo.fps*60)
         plt.subplot(4,1,2,rasterized=True)
         plt.cla()
-        plt.plot(x,self.Pair.IAD,'b.',markersize=1)
+        plt.plot(x,self.pair.IAD(),'b.',markersize=1)
         plt.xlim([0, 90]) 
         plt.xlabel('time [minutes]')
         plt.ylabel('IAD [mm]')
@@ -140,7 +182,7 @@ class experiment(object):
         plt.subplot(4,4,2)
         plt.cla()
         #get rid of nan
-        IAD=self.Pair.IAD
+        IAD=self.pair.IAD()
         IAD=IAD[~np.isnan(IAD)]
         histBins=np.arange(100)
         n, bins, patches = plt.hist(IAD, bins=histBins, normed=1, histtype='stepfilled')
@@ -158,8 +200,8 @@ class experiment(object):
         plt.subplot(4,4,4)
         plt.cla()
         x=[1,2]
-        y=[self.Pair.IAD_m,self.sPair.spIAD_m]
-        yerr=[0,self.sPair.spIAD_std]
+        y=[np.nanmean(IAD),self.spIAD_m()]
+        yerr=[0,self.spIAD_std()]
         plt.bar(x, y, yerr=yerr, width=0.5,color='k')
         lims = plt.ylim()
         plt.ylim([0, lims[1]]) 
@@ -170,8 +212,8 @@ class experiment(object):
         
         plt.subplot(4,4,9)
         plt.cla()
-        a1=self.Pair.animals[0].neighborMat
-        a2=self.Pair.animals[1].neighborMat
+        a1=self.pair.animals[0].ts.neighborMat()
+        a2=self.pair.animals[1].ts.neighborMat()
         
         meanPosMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
         plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100],origin='lower')
@@ -183,7 +225,7 @@ class experiment(object):
         #the vertial orientation was confirmed correct in march 2016
         plt.subplot(4,4,13)
         plt.cla()
-        PosMat=self.Pair.animals[0].neighborMat
+        PosMat=a1
         plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
@@ -191,7 +233,7 @@ class experiment(object):
         
         plt.subplot(4,4,14)
         plt.cla()
-        PosMat=self.Pair.animals[1].neighborMat
+        PosMat=a2
         plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
@@ -200,7 +242,7 @@ class experiment(object):
         #LEADERSHIP
         plt.subplot(4,4,15)
         plt.cla()
-        self.LeadershipIndex=np.array([a.LeadershipIndex for a in self.Pair.animals])
+        self.LeadershipIndex=np.array([a.ts.FrontnessIndex() for a in self.pair.animals])
         x=[1,2]
         barlist=plt.bar(x,self.LeadershipIndex, width=0.5,color='b')
         barlist[1].set_color('r')
@@ -209,11 +251,13 @@ class experiment(object):
         plt.ylim([-.5, .5])
         plt.xlim([0.5, 3])
         
-        if np.sum(self.Pair.StackTopAnimal)>0:
-            xtickList=[int(np.where(self.Pair.StackTopAnimal==1)[0])+1.25,int(np.where(self.Pair.StackTopAnimal==0)[0])+1.25]
-            plt.xticks(xtickList,['top','bottom'])
-        else:
+        tmp=[an.at_bottom_of_dish_stack() for an in self.pair.animals]
+        if np.sum(tmp)==0:
             plt.xticks([1.25,2.25],['same','dish'])
+
+        else:
+            xtickList=[int(np.where(self.Pair.StackTopAnimal==1)[0])+1.25,int(np.where(self.Pair.StackTopAnimal==0)[0])+1.25]
+            plt.xticks(xtickList,['top','bottom'])            
             
         plt.subplot(4,4,16)
         plt.cla()
@@ -227,8 +271,8 @@ class experiment(object):
 
         plt.subplot(4,4,10)
         plt.title('accel=f(pos_n)')
-        a1=self.Pair.animals[0].ForceMat
-        a2=self.Pair.animals[1].ForceMat
+        a1=self.pair.animals[0].ts.ForceMat_speedAndTurn()
+        a2=self.pair.animals[1].ts.ForceMat_speedAndTurn()
         meanForceMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
         johPlt.plotMapWithXYprojections(meanForceMat,3,outer_grid[9],31,10)
         
@@ -237,7 +281,7 @@ class experiment(object):
         
         plt.subplot(4,4,11)
         plt.cla()
-        plt.bar([1,2],self.Pair.avgSpeed(),width=0.5)
+        plt.bar([1,2],self.pair.avgSpeed(),width=0.5)
         plt.title('avgSpeed')
    
         plt.tight_layout()
