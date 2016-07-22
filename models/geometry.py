@@ -228,6 +228,7 @@ class Vector(object):
         rads %= 2 * math.pi
         degs = math.degrees(rads)
         return degs
+        
 
     def __mul__(self, other):
         """ Returns the dot product of self and other if multiplied
@@ -271,18 +272,24 @@ class Vector(object):
     def __repr__(self):
         return str(self.values)
 
+
+def get_angle_Trajectories(p1, p2):
+    dx = p2.x() - p1.x()
+    dy = p2.y() - p1.y()
+    rads = np.arctan2(-dy, dx)
+    rads %= 2 * np.pi
+    degs = np.degrees(rads)
+    return degs
+        
+        
 def smallest_angle_difference_degrees(x,y):
     diff=x-y
     smallest_diff=np.mod(diff+180,360)-180
     return smallest_diff
 
 def get_angle_list(a,b):
-    angle_list=np.zeros(a.shape[0])
-    for i in range(a.shape[0]):
-        p1=Vector(*a[i,:])
-        p2=Vector(*b[i,:])
-        angle_list[i]=Vector.get_angle(p1,p2)
-    return angle_list   
+    x=get_angle_Trajectories(Trajectory(a),Trajectory(b))
+    return x   
         
 def distance_point_line(p,l1,l2):
     distance=np.abs((l2[1]-l1[1])*p[0]-(l2[0]-l1[0])*p[1]+l2[0]*l1[1]-l2[1]*l1[0])/np.sqrt((l2[1]-l1[1])**2+(l2[0]-l1[0])**2)
