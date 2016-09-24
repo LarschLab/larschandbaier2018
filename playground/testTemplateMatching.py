@@ -11,12 +11,9 @@ from matplotlib import pyplot as plt
 
 MIN_MATCH_COUNT = 4
 
-#img1 = cv2.imread('d:/template/temp2.jpg',0)          # queryImage
-#img2 = cv2.imread('d:/testdata/anim.jpeg',0) # trainImage
 
-
-img1 = cv2.imread('d:/template/temp2.jpg',0)          # queryImage
-img2 = cv2.imread('d:/testdata/animals.jpg',0) # trainImage
+img1 = cv2.imread('d:/one_animal_rotated.jpg',0)          # queryImage
+img2 = cv2.imread('d:/many_animals.jpg',0) # trainImage
 
 
 # Initiate SIFT detector
@@ -44,50 +41,23 @@ matches = flann.knnMatch(des1,des2,k=2)
 
 good = []
 for m,n in matches:
-    if m.distance < 1*n.distance:
+    if m.distance < 0.7*n.distance:
         good.append(m)
         
-draw_params = dict(matchColor = (0,255,0),
-                   singlePointColor = (255,0,0),
-                   flags = 0)
-                   
-img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None,**draw_params)
-plt.figure()
-plt.imshow(img3,),plt.show()                 
 
-src_pts = np.float32([ kp1[m.queryIdx].pt for m in good]).reshape(-1,1,2)
-dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good]).reshape(-1,1,2)
-
-M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
-matchesMask = mask.ravel().tolist()
-
-#decompose M
-
-a = M[0,0]
-b = M[0,1]
-c = M[0,2]
-d = M[1,0]
-e = M[1,1]
-f = M[1,2]
-
-p = np.sqrt(a*a + b*b)
-r = (a*e - b*d)/(p)
-q = (a*d+b*e)/(a*e - b*d)
-
-translation = (c,f)
-scale = (p,r)
-shear = q
-theta = np.arctan2(b,a)
-  
-
-#rigid transform
-rt=cv2.estimateRigidTransform(src_pts,dst_pts,False)
-
-h,w = img1.shape
-pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
-dst = cv2.perspectiveTransform(pts,M)
-
-img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
+#src_pts = np.float32([ kp1[m.queryIdx].pt for m in good]).reshape(-1,1,2)
+#dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good]).reshape(-1,1,2)
+#
+#M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
+#matchesMask = mask.ravel().tolist()
+#
+#
+#
+#h,w = img1.shape
+#pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+#dst = cv2.perspectiveTransform(pts,M)
+#
+#img2 = cv2.polylines(img2,[np.int32(dst)],True,255,3, cv2.LINE_AA)
     
 draw_params = dict(matchColor = (0,255,0), # draw matches in green color
                    singlePointColor = None,
@@ -97,5 +67,3 @@ draw_params = dict(matchColor = (0,255,0), # draw matches in green color
 img3 = cv2.drawMatches(img1,kp1,img2,kp2,good,None,**draw_params)
 plt.figure()
 plt.imshow(img3, 'gray'),plt.show()
-
-print 
