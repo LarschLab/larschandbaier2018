@@ -23,7 +23,8 @@ import functions.matrixUtilities_joh as mu
 if __name__ == '__main__':
     mp.freeze_support()
     reread=1
-    numframes=50 #0 = all
+    numframes=0 #0 = all
+    KeepVideoFrames=0; #memory intensive! only for generating example movie...
 
          
     if reread:
@@ -34,8 +35,9 @@ if __name__ == '__main__':
         csvPath = os.path.join(head,tail[:-4]+'_contour_orientation.csv')
         
         experiment=xp.experiment(af)
-        pair_trajectories=experiment.Pair.get_var_from_all_animals(['rawTra','xy'])
-        asp=AnimalShapeParameters.vidSplit(af,pair_trajectories,numframes,1)
+#        pair_trajectories=experiment.pair.get_var_from_all_animals(['ts','rawTra','xy'])
+        pair_trajectories=experiment.rawTra
+        asp=AnimalShapeParameters.vidSplit(af,pair_trajectories,numframes,KeepVideoFrames)
         
     else:
         pf = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:/data/b/2016/20160311_arenaSize/b/1/'))
@@ -113,7 +115,7 @@ if __name__ == '__main__':
     tail_curve_1=np.nanmean(asp[0].allDist.T,axis=0)
     plt.plot(tail_curve_1,'-',label='tail curvature') 
     #detect bouts
-    bout_start=peakdet.detect_peaks(tail_curve_1,1,8)
+    bout_start=peakdet.detect_peaks(tail_curve_1[10:-10],1,8)+10
     plt.plot(bout_start,tail_curve_1[bout_start],'o',label='bouts')
     plt.title('tail curvature animal 0 -> peaks = bout start')
     plt.legend()
@@ -136,8 +138,8 @@ if __name__ == '__main__':
     #(error angle is called 'deviation' in asp class)
     
     i=0
-    error_before=np.nanmedian([asp[0].deviation[b-6:b-3] for b in bout_start[1:-2]],axis=1)
-    error_after=np.nanmedian([asp[0].deviation[b+3:b+6] for b in bout_start[1:-2]],axis=1)
+    error_before=np.nanmedian([asp[0].deviation[b-6:b-3] for b in bout_start],axis=1)
+    error_after=np.nanmedian([asp[0].deviation[b+3:b+6] for b in bout_start],axis=1)
     d_error=np.diff(np.abs([error_before,error_after]).T,axis=1)
 
     ##alternative d_error 
@@ -146,23 +148,101 @@ if __name__ == '__main__':
     #baseline is orientation of vector from ainimal 0 to animal 1
     baseline1=[asp[0].baseline[b] for b in bout_start]
     #heading is median animal orientation
-    heading_before=np.nanmedian([asp[0].fish_orientation_elipse[b-6:b-3] for b in bout_start[1:-2]],axis=1)
-    heading_after=np.nanmedian([asp[0].fish_orientation_elipse[b+3:b+6] for b in bout_start[1:-2]],axis=1)
+    heading_before=np.nanmedian([asp[0].fish_orientation_elipse[b-7:b-2] for b in bout_start],axis=1)
+    heading_after=np.nanmedian([asp[0].fish_orientation_elipse[b+2:b+7] for b in bout_start],axis=1)
     #error(angle) is difference baseline-heading    
-    error_before=geometry.smallest_angle_difference_degrees(heading_before,baseline1[1:-2]) 
-    error_after=geometry.smallest_angle_difference_degrees(heading_after,baseline1[1:-2]) 
+    error_before=geometry.smallest_angle_difference_degrees(heading_before,baseline1) 
+    error_after=geometry.smallest_angle_difference_degrees(heading_after,baseline1) 
+    d_error_inst=np.diff(np.abs([error_before,error_after]).T,axis=1)
+    d_error_inst2=np.diff(np.array([error_before,error_after]).T)
+    d_heading=geometry.smallest_angle_difference_degrees(heading_before,heading_after)
+    
+    #change in distance
+    d_IAD=np.diff(dist)    
+    plt.figure()
+    plt.plot(d_IAD)
+    
+    plt.figure()
+    plt.scatter(dist[1:],d_IAD)
+    
+    d_IAD_lastBout=[dist[b]-dist[b-1] for b in bout_start[1:]]
+    plt.figure()
+    plt.plot(dist)
+    plt.plot(bout_start[1:],np.multiply(d_IAD_lastBout,50),'.')
+    
+    
+    plt.figure()
+    plt.scatter(d_IAD_lastBout,d_heading[1:])    
+    
+    
+    plt.figure()
+    binsx=np.arange(-20,20,.5)
+    binsy=np.arange(0,180,5)
+    tmp=plt.hist2d(d_IAD_lastBout,np.abs(error_before[1:]),bins=[binsx,binsy])[0]
+    bm=sta.binned_statistic(d_IAD_lastBout,np.abs(error_before[1:]),bins=binsx,statistic='median')[0]
+    plt.plot(binsx[1:],bm)
+    
+    
+    plt.figure()
+    binsx=np.arange(-20,20,.5)
+    binsy=np.arange(0,180,1)
+    tmp=plt.hist2d(d_IAD_lastBout,np.abs(error_after[1:]),bins=[binsx,binsy])[0]
+    bm=sta.binned_statistic(d_IAD_lastBout,np.abs(error_after[1:]),bins=binsx,statistic='median')[0]
+    plt.plot(binsx[1:],bm)
+    
+    plt.figure()
+    binsx=np.arange(-20,20,1)
+    binsy=np.arange(-25,25,1)
+    tmp=plt.hist2d(d_IAD_lastBout,np.squeeze((d_error_inst[1:,0])),bins=[binsx,binsy])[0]
+    bm=sta.binned_statistic(np.array(d_IAD_lastBout),np.squeeze((d_error_inst[1:,0])),bins=binsx,statistic='mean')[0]
+    plt.plot(binsx[1:],bm)
+    
+    
+    plt.figure()
+    binsx=np.arange(-180,180,5)
+    binsy=np.arange(-45,45,1)
+    edhMap=plt.hist2d(error_before,np.squeeze((d_error_inst)),bins=[binsx,binsy])[0]
+    m=np.isfinite(error_before)==True & np.isfinite(d_heading)
+    #sta.pearsonr(error_before[m],d_heading[m])
+ 
+    bm=sta.binned_statistic(error_before[m],np.squeeze((d_error_inst))[m],bins=binsx,statistic='mean')[0]
+    plt.plot(binsx[1:],bm)
+    
+
+    plt.scatter(error_before,d_heading)
+    binsx=np.arange(-180,180,5)
+    binsy=np.arange(-90,90,5)
+    plt.figure()
+    edhMap=plt.hist2d(error_before,d_heading,bins=[binsx,binsy])[0]
+    m=np.isfinite(error_before)==True & np.isfinite(d_heading)
+    #sta.pearsonr(error_before[m],d_heading[m])
+ 
+    bm=sta.binned_statistic(error_before[m],d_heading[m],bins=binsx,statistic='mean')[0]
+    plt.plot(binsx[1:],bm)
+     
+    
+    heading_before=np.nanmedian([asp[0].fish_orientation_elipse[b-7:b-2] for b in bout_start],axis=1)
+    heading_after=np.nanmedian([asp[0].fish_orientation_elipse[b+2:b+7] for b in bout_start],axis=1)
+    #error(angle) is difference baseline-heading    
+    error_before=geometry.smallest_angle_difference_degrees(heading_before,baseline1) 
+    error_after=geometry.smallest_angle_difference_degrees(heading_after,baseline1) 
     d_error_inst=np.diff(np.abs([error_before,error_after]).T,axis=1)
     d_error_inst2=np.diff(np.array([error_before,error_after]).T)
     d_heading=geometry.smallest_angle_difference_degrees(heading_before,heading_after)
     
     plt.figure()
     plt.scatter(error_before,d_heading)
-    bins=np.arange(-180,180,5)
+    binsx=np.arange(-180,180,5)
+    binsy=np.arange(-90,90,5)
     plt.figure()
-    edhMap=plt.hist2d(error_before,d_heading,bins=bins)[0]
-    m=np.logical_and(np.isfinite(error_before)==True,np.isfinite(d_heading)==True)
-    sta.pearsonr(error_before[m],d_heading[m])
+    edhMap=plt.hist2d(error_before,d_heading,bins=[binsx,binsy])[0]
+    m=(np.isfinite(error_before)==True) & (np.isfinite(d_heading)==True)
+    #sta.pearsonr(error_before[m],d_heading[m])
  
+    bm=sta.binned_statistic(error_before[m],d_heading[m],bins=binsx,statistic='mean')[0]
+    plt.plot(binsx[1:],bm)
+    
+    
     
     plt.figure()
     n1, bins, patches =plt.hist(error_before,bins=range(-180,180,5), normed=1, histtype='step',label='before bout')    
