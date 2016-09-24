@@ -4,13 +4,13 @@ import cv2
 import tkFileDialog
 import wx
 import os
-import joFishHelper
+import functions.video_functions as vf
 import time
 import pickle
 #import ffmpegSplit4_module_bgDiv
 
 
-#avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'))
+avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'))
 #avi_path = 'C:/Users/jlarsch/Desktop/testVideo/x264Test.avi'
 #avi_path = 'D:/data/b/2FishSeries_2/20151125_isolatedVsGroup/expStream2015-11-25T16_45_05_isolatedVsGroup.avi'
 
@@ -20,7 +20,7 @@ class UnTileArenaVideo(object):
         
         self.avi_path=avi_path
         head, tail = os.path.split(self.avi_path)
-        vp=joFishHelper.getVideoProperties(avi_path)
+        vp=vf.getVideoProperties(avi_path)
         self.ffmpeginfo = vp
         self.videoDims = [vp['width'] , vp['height']]
         self.numFrames=int(vp['nb_frames'])
@@ -38,7 +38,7 @@ class UnTileArenaVideo(object):
         #gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)
         bgPath=(head+'/bgMed.tif')  
         
-        joFishHelper.getMedVideo(avi_path,9,1)
+        vf.getMedVideo(avi_path,9,1)
            
         gray=cv2.imread(bgPath)
         
@@ -189,4 +189,4 @@ class UnTileArenaVideo(object):
         for i in range(numAr):
             VidOutList[i].release()   
         
-#Scl=UnTileArenaVideo(avi_path)
+Scl=UnTileArenaVideo(avi_path)

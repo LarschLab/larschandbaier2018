@@ -8,8 +8,8 @@ Created on Fri Dec 04 14:16:45 2015
 import subprocess as sp
 import os
 import numpy as np
-import joFishHelper
-import unTileVideo_b
+import functions.video_functions as vf
+import functions.unTileVideo_b as unTileVideo_b
 import tkFileDialog
 
 avi_path = tkFileDialog.askopenfilename(initialdir='d:/data/b/2016/')
@@ -25,7 +25,7 @@ def videoSplit(aviP,tileList):
     head, tail = os.path.split(aviP)
     
     #calculate median background image for background division
-    joFishHelper.getMedVideo(aviP,9,1)
+    vf.getMedVideo(aviP,9,1)
     bgPath=(head+'/bgMed.tif')
     print 'background generated'
     #assemble ffmpeg command
@@ -75,7 +75,7 @@ def videoSplit(aviP,tileList):
     #'-q:v', '5',
     #'-g', '10',
     #'-keyint_min','10',
-    '-r','30',
+    '-r','160',
     '-filter_complex', fc[:-1]]
 
     cmd.extend(mc[1:])    
