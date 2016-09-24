@@ -13,10 +13,11 @@ from models.animal import Animal
 class Pair(object):
     #Class for trajectories of one pair of animals.
     #Calculation and storage of dependent time series: speed, heading, etc.
-    def __init__(self, shift=False):
+    def __init__(self, shift=False,nRun=0):
 
         self.animals=[]
         self.shift=shift
+        self.nRun=nRun
         
         
 #        self.animals.append(Animal(0,trajectories[:,0,:],expInfo,shiftRun=shiftRun))

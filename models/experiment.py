@@ -65,7 +65,7 @@ class experiment(object):
         self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
         mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
         self.rawTra=mat['trajectories']
-        #take out nan in the beginnin DONT do this for now, this would shift trace averages or require correction!
+        #some mat files begin with some number of nan entries for position. set those to zero
         nanInd=np.where(np.isnan(self.rawTra))
         if np.equal(np.shape(nanInd)[1],0) or np.greater(np.max(nanInd),1000):
             LastNan=0
@@ -94,7 +94,7 @@ class experiment(object):
             #generate shifted control 'mock' pairs
             #generate nRuns instances of Pair class with one animal time shifted against the other
             for i in range(self.n_shift_Runs):
-                Pair(shift=True).linkExperiment(self)
+                Pair(shift=True,nRun=i).linkExperiment(self)
             
             #calculate mean IAD histogram for shifted pairs
             IADHistall=[]
@@ -137,12 +137,14 @@ class experiment(object):
     
     def plotOverview(self,condition='notDefined'):
         
-        for i in range(2):
-            self.pair.animals[i].plot_errorAngle()
-            
-        for j in range(10):
-            for i in range(2):
-                self.sPair[j].animals[i].plot_errorAngle()
+#        for i in range(2):
+#            self.pair.animals[i].plot_errorAngle()
+#            self.pair.animals[i].plot_d_error_over_d_IAD()
+#            
+#        for j in range(10):
+#            for i in range(2):
+#                self.sPair[j].animals[i].plot_errorAngle()
+#                self.sPair[j].animals[i].plot_d_error_over_d_IAD()
             
         outer_grid = gridspec.GridSpec(4, 4)        
         plt.figure(figsize=(8, 8))   

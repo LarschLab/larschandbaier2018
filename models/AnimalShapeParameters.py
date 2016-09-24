@@ -37,11 +37,17 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames,generateOutVi
     for i in np.arange(startFrame,startFrame+nFrames):
         video.set(cv2.CAP_PROP_POS_FRAMES,i)
         img_frame_original = video.read()[1]
-        img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
+        
+        try:
+            gray=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
+        except:
+            print 'error converting frame: '+str(i)+', using previous frame' 
+                
+#        img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
         tc=trajectories[i,0,:]
-        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,0,generateOutVideo))
+        asp.append(AnimalShapeParameters_f(tc,gray,i,0,generateOutVideo))
         tc=trajectories[i,1,:]
-        asp.append(AnimalShapeParameters_f(tc,img_frame_original,i,1,generateOutVideo))
+        asp.append(AnimalShapeParameters_f(tc,gray,i,1,generateOutVideo))
 
     return asp
     
@@ -67,6 +73,11 @@ def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
     #for job in jobs: job.join() # Wait for them all to finish
     # And now, collect all the outputs:
     asp_f=[queue.get() for queue in queues]
+    currentTime=datetime.datetime.now()
+    print currentTime, ': saving data before cleanUp'
+    pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
+    save_asp(pickleFile,asp_f)    
+    
     asp=[]            
     asp.append(AnimalShapeParameters(asp_f,0))
     asp.append(AnimalShapeParameters(asp_f,1))
@@ -74,7 +85,7 @@ def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
     asp=asp_cleanUp(asp)
     
     currentTime=datetime.datetime.now()
-    print currentTime, ': saving data'
+    print currentTime, ': saving data after cleanUp'
     pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
     save_asp(pickleFile,asp)
     
@@ -185,7 +196,7 @@ class AnimalShapeParameters_f(object):
         
         #if np.mod(i,100)==0:
         #    print i,"         \r",
-        if np.mod(i,1000)==0:
+        if np.mod(i,10000)==0:
             currentTime=datetime.datetime.now()
             print currentTime,'animal: ',animal, ' frame: ',i
             sys.stdout.flush()

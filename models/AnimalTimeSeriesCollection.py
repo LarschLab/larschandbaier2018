@@ -10,6 +10,7 @@ import functions.matrixUtilities_joh as mu
 import scipy.stats as sta
 import models.geometry as geometry
 
+
 class AnimalTimeSeriesCollection:
     def __init__(self):
         self.dummy=0
