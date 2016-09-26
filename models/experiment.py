@@ -16,11 +16,15 @@ from matplotlib.backends.backend_pdf import PdfPages
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
     def __init__(self,path,arenaDiameter_mm=100):
-        self.arenaDiameter_mm = arenaDiameter_mm
+        
+        if forceCorrectPixelScaling:
+            loadPixelScaling()
+        else:
+            self.arenaDiameter_mm = arenaDiameter_mm
+            self.pxPmm = 0 #assign later from class 'Pair'
+        
         self.arenaCenterPx = [0,0] #assign later from class 'Pair'
-        self.pxPmm = 0 #assign later from class 'Pair'
-        
-        
+
         #If a video file name is passed, collect video parameters
         if path.endswith('.avi') or path.endswith('.mp4'):
             self.aviPath = path
@@ -106,6 +110,8 @@ class experiment(object):
             self.avgSpeed=self.pair.avgSpeed
             probTra=mat['probtrajectories']
             self.idQuality=np.mean(probTra[probTra>=0])*100
+
+    
 
     def addPair(self,pair):
         

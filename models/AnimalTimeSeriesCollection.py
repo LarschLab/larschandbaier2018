@@ -8,7 +8,7 @@ Created on Thu Jul 21 11:22:22 2016
 
 -'fundamental' time series are extracted directly from the video
     -fundamentals are stored in the parent experiment class for all animal siblings
-    -fundamentals get loaded from csv files
+    -fundamentals get loaded into memory from csv files
 -'derived' time series are transformed fundamentals, e.g. speed, angles, heading
     -derived time series are computed during run time at each call
 

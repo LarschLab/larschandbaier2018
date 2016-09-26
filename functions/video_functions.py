@@ -9,6 +9,8 @@ import numpy as np
 import subprocess
 import os
 import cv2
+import tkFileDialog
+
 
 
 
@@ -29,33 +31,71 @@ def getVideoProperties(aviPath):
     decoder_configuration['fps']=int(float(nominator) / float(denominator))
     return decoder_configuration
     
-    
-def getMedVideo(aviPath,FramesToAvg,saveFile):
-    cap = cv2.VideoCapture(aviPath)
-    head, tail = os.path.split(aviPath)
-    vp=getVideoProperties(aviPath)
-    videoDims = tuple([int(vp['width']) , int(vp['height'])])
-    print videoDims
-    #numFrames=int(vp['nb_frames'])
-    numFrames=50000
-    img1=cap.read()
-    img1=cap.read()
-    img1=cap.read()
-    img1=cap.read()
-    gray = cv2.cvtColor(img1[1], cv2.COLOR_BGR2GRAY)
-    allMed=gray.copy()
-    for i in range(10,numFrames-2,np.round(numFrames/FramesToAvg)): #use FramesToAvg images to calculate median
-        cap.set(cv2.CAP_PROP_POS_FRAMES,i)
-        image=cap.read()
-        print i
-        gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
-        allMed=np.dstack((allMed,gray))
-        
-    vidMed=np.median(allMed,axis=2)
 
-    if saveFile:
-        ImOutFile=(head+'/bgMed.tif')
-        cv2.imwrite(ImOutFile,vidMed)
-        return 1
+def gui_get_pixel_scaling(aviPath):
+    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'),title='select video to generate median for scaling')
+    medFrame=getMedVideo(aviPath)
+    
+
+    
+    
+def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,arenaDiameter=10):
+    #pixel scaling file will typically reside in parent directory where the raw video file lives
+    #forceCorrectPixelScaling=0 - force user iput if no previous data exists
+    #forceInput=0 - force user input even if data exists - overwrite
+    #arenaDiameter=10 - default arena diameter
+    head, tail = os.path.split(aviPath)
+    head=os.path.normpath(head)
+    parentDir = os.path.dirname(head)
+    scaleFile = os.path.join(head,'pixelScale.csv')
+    
+    if np.equal(~os.path.isfile(scaleFile),-2) and not forceInput:
+        scaleData=np.array(np.loadtxt(scaleFile, skiprows=1,dtype=float))
+        
+    elif forceInput or (np.equal(~os.path.isfile(scaleFile),-1) and  forceCorrectPixelScaling):
+        scaleData=[gui_get_pixel_scaling(aviPath),arenaDiameter]
+        np.savetxt(scaleFile,scaleData,delimiter=',',header='pxPmm,arenaDiameter')
     else:
-        return vidMed
+        return defaultScaling
+        
+    
+def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0):
+    
+    head, tail = os.path.split(aviPath)
+    bg_file=(head+'/bgMed.tif')
+    
+    if np.equal(~os.path.isfile(bg_file),-2) and not forceInput:
+        bg=cv2.imread(bg_file)
+        try:
+            bg = cv2.cvtColor(bg, cv2.COLOR_RGB2GRAY)
+        except:
+            pass
+        return bg
+        
+    else:
+        print 'calculating median video'
+        cap = cv2.VideoCapture(aviPath)
+        vp=getVideoProperties(aviPath)
+        videoDims = tuple([int(vp['width']) , int(vp['height'])])
+        print videoDims
+        #numFrames=int(vp['nb_frames'])
+        numFrames=np.min([50000,int(vp['nb_frames'])])
+        img1=cap.read()
+        img1=cap.read()
+        img1=cap.read()
+        img1=cap.read()
+        gray = cv2.cvtColor(img1[1], cv2.COLOR_BGR2GRAY)
+        allMed=gray.copy()
+        for i in range(10,numFrames-2,np.round(numFrames/FramesToAvg)): #use FramesToAvg images to calculate median
+            cap.set(cv2.CAP_PROP_POS_FRAMES,i)
+            image=cap.read()
+            print i
+            gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
+            allMed=np.dstack((allMed,gray))
+            
+        vidMed=np.median(allMed,axis=2)
+    
+        if saveFile:
+            cv2.imwrite(bg_file,vidMed)
+
+        return vidMed,bg_file

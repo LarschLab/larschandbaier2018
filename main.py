@@ -11,6 +11,8 @@ batchmode=0
 timeStim=0
 sizePlot=0
 systShift=0
+postureAnalysis=1
+forceCorrectPixelScaling=1
 
 if batchmode:
     
