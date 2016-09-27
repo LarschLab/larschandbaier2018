@@ -12,15 +12,14 @@ timeStim=0
 sizePlot=0
 systShift=0
 postureAnalysis=1
-forceCorrectPixelScaling=1
 
 if batchmode:
     
     expSet=es.experiment_set(systShift,timeStim,sizePlot)
             
 else:    
-    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:/data/b/2016/20160311_arenaSize/b/1/'))
-#    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:/data/b/2016/20160317_SizeMix/1/1/3/'))    
+    #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:/data/b/2016/20160311_arenaSize/b/1/'))
+    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:\\data\\b\\2016\\20160921_180fps\\1\\1\\'))    
     #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b/2016/20160314_TLStacks/1/a/1'))
 
     experiment=xp.experiment(avi_path)

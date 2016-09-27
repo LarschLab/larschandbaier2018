@@ -22,8 +22,16 @@ class gui_circles(object):
         self.frame = cv2.imread(img_file)
         self.fig = plt.figure(figsize=(6,9))
         self.ax = self.fig.add_subplot(111)
+        self.out_file=out_file
         xaxis = self.frame.shape[1]
         yaxis = self.frame.shape[0]
+        
+        def ask(parent=None, message='', default_value=''):
+            dlg = wx.TextEntryDialog(parent, message, defaultValue=default_value)
+            dlg.ShowModal()
+            result = dlg.GetValue()
+            dlg.Destroy()
+            return result
         
         if ~np.equal(~os.path.isfile(out_file),-2) or force_input:
             self.im = self.ax.imshow(self.frame[::-1,:], cmap='gray', extent=(0,xaxis,0,yaxis), picker=5)
@@ -45,15 +53,10 @@ class gui_circles(object):
         else:
             #self.roiSq = pickle.load( open(out_file, "rb" ) )
             rois=pd.read_csv(out_file,header=0,index_col=0,sep=',')
-            self.roiAll=rois.ix[:,0:2]
-            self.roiSq=rois.ix[:,3:6]
+            self.roiAll=rois.ix[:,0:3].values
+            self.roiSq=rois.ix[:,3:7].values
     
-    def ask(parent=None, message='', default_value=''):
-        dlg = wx.TextEntryDialog(parent, message, defaultValue=default_value)
-        dlg.ShowModal()
-        result = dlg.GetValue()
-        dlg.Destroy()
-        return result
+
             
     def onpick1(self,event):
         if np.less(self.PicksDone,self.numPicks):
@@ -84,10 +87,14 @@ class gui_circles(object):
                 
         else:
             print 'all arenas defined'
-            plt.close()
+            
             self.roiSq=np.array(list(self.roiSq)).astype('int')
-            head, tail = os.path.split(self.avi_path)
-            headers=['c1','c2','c3','s1','s2','s3','s4']
-            rois=pd.DataFrame([self.roiAll,self.roiSq])
-            rois.to_csv(out_file,sep=',')
+            head, tail = os.path.split(self.out_file)
+            headers=['circle center x','circle center y','circle radius','square width','square height','square top left x','square top left y']
+            roi_both=np.hstack((self.roiAll,self.roiSq))
+            print roi_both
+            rois=pd.DataFrame(data=roi_both,columns=headers,index=None)
+            rois.to_csv(self.out_file,sep=',')
+            print 'saved roi data'
+            plt.close()
     
