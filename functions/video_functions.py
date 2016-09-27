@@ -10,9 +10,7 @@ import subprocess
 import os
 import cv2
 import tkFileDialog
-
-
-
+import functions.gui_circle as gc
 
 def getVideoProperties(aviPath):
     #read video metadata via ffprobe and parse output
@@ -32,11 +30,6 @@ def getVideoProperties(aviPath):
     return decoder_configuration
     
 
-def gui_get_pixel_scaling(aviPath):
-    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('c:/test/'),title='select video to generate median for scaling')
-    medFrame=getMedVideo(aviPath)
-    
-
     
     
 def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,arenaDiameter=10):
@@ -47,14 +40,17 @@ def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,arenaDiame
     head, tail = os.path.split(aviPath)
     head=os.path.normpath(head)
     parentDir = os.path.dirname(head)
-    scaleFile = os.path.join(head,'pixelScale.csv')
+    scaleFile = os.path.join(parentDir,'bgMed_scale.csv')
     
-    if np.equal(~os.path.isfile(scaleFile),-2) and not forceInput:
+    if np.equal(~os.path.isfile(scaleFile),-2) or forceCorrectPixelScaling:
         scaleData=np.array(np.loadtxt(scaleFile, skiprows=1,dtype=float))
         
     elif forceInput or (np.equal(~os.path.isfile(scaleFile),-1) and  forceCorrectPixelScaling):
-        scaleData=[gui_get_pixel_scaling(aviPath),arenaDiameter]
-        np.savetxt(scaleFile,scaleData,delimiter=',',header='pxPmm,arenaDiameter')
+        aviPath = tkFileDialog.askopenfilename(initialdir=parentDir,title='select video to generate median for scale information')
+        bg_file=getMedVideo(aviPath)[1]
+        scaleData=gc.get_circle_rois(bg_file,'_scale',forceInput)[0]
+        pxPmm=scaleData['circle radius']/scaleData['arena size']
+        return pxPmm
     else:
         return defaultScaling
         
