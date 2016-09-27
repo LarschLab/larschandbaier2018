@@ -2,18 +2,34 @@
 """
 Created on Mon Sep 26 23:11:38 2016
 
+Pick circular ROIs on an image using 4 mouse clicks
+saves resulting ROI to csv file
+load existing data if already exists by default
+run by calling get_circle_rois()
+
+img_file: this would typically be an average image from a video
+force_input=0: can set to one to ask user for input even if csv file already exists
+
+
 @author: johannes
 """
+
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import cv2
-import tkFileDialog
 import wx
 import os
-import video_functions as vf
+import warnings
 
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=DeprecationWarning)
 
+def get_circle_rois(img_file,force_input=0):
+    out_file=img_file[:-3]+'csv'
+    rois=gui_circles(img_file=img_file,out_file=out_file,force_input=force_input).rois
+    return (rois,out_file)
     #wx dialog box
         
 class gui_circles(object):
@@ -35,27 +51,26 @@ class gui_circles(object):
         
         if ~np.equal(~os.path.isfile(out_file),-2) or force_input:
             self.im = self.ax.imshow(self.frame[::-1,:], cmap='gray', extent=(0,xaxis,0,yaxis), picker=5)
-            self.fig.canvas.mpl_connect('button_press_event', self.onpick1)
             self.fig.canvas.draw()
-    
-            self.ClickCount=0
             # Initialize wx App
             app = wx.App()
             app.MainLoop()
     
             # Call Dialog
             self.numPicks = np.int(ask(message = 'How Many Arenas?'))
+            self.ClickCount=0
+            
+            self.fig.canvas.mpl_connect('button_press_event', self.onpick1)
             self.PicksDone=0
             self.x = np.zeros([self.numPicks,4])
             self.y = np.zeros([self.numPicks,4])
             self.roiAll=[] #circular roi for each dish arena
             self.roiSq=[] #rectangular roi around each dish
+            self.fig.canvas.start_event_loop(timeout=-1)
         else:
-            #self.roiSq = pickle.load( open(out_file, "rb" ) )
-            rois=pd.read_csv(out_file,header=0,index_col=0,sep=',')
-            self.roiAll=rois.ix[:,0:3].values
-            self.roiSq=rois.ix[:,3:7].values
-    
+            self.rois=pd.read_csv(out_file,header=0,index_col=0,sep=',')
+            self.roiAll=self.rois.ix[:,0:3].values
+            self.roiSq=self.rois.ix[:,3:7].values
 
             
     def onpick1(self,event):
@@ -93,8 +108,9 @@ class gui_circles(object):
             headers=['circle center x','circle center y','circle radius','square width','square height','square top left x','square top left y']
             roi_both=np.hstack((self.roiAll,self.roiSq))
             print roi_both
-            rois=pd.DataFrame(data=roi_both,columns=headers,index=None)
-            rois.to_csv(self.out_file,sep=',')
+            self.rois=pd.DataFrame(data=roi_both,columns=headers,index=None)
+            self.rois.to_csv(self.out_file,sep=',')
             print 'saved roi data'
             plt.close()
+            self.fig.canvas.stop_event_loop()
     
