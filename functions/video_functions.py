@@ -32,11 +32,10 @@ def getVideoProperties(aviPath):
 
     
     
-def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,arenaDiameter=10):
+def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0):
     #pixel scaling file will typically reside in parent directory where the raw video file lives
     #forceCorrectPixelScaling=0 - force user iput if no previous data exists
     #forceInput=0 - force user input even if data exists - overwrite
-    #arenaDiameter=10 - default arena diameter
     head, tail = os.path.split(aviPath)
     head=os.path.normpath(head)
     parentDir = os.path.dirname(head)

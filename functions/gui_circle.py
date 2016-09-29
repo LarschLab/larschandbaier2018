@@ -113,12 +113,14 @@ class gui_circles(object):
                 self.CirclesDone +=1
                 #print self.CirclesDone
                 self.roiAll.append(roi)
-                wh=roi[2]*2+roi[2]*.1 #width and height of roi around circular roi
-                wh=wh+16-np.mod(wh,16) #expand to multiple of 16 for videoCodecs
+                largest_square=np.min([self.frame.shape[0:1]-roi[0:1]-4,roi[0:1]])*2
+                largest_square=largest_square-16+np.mod(largest_square,16)
+                wh=np.min([largest_square,roi[2]*2+roi[2]*.1]) #width and height of roi around circular roi
+                wh=np.min([largest_square,wh+16-np.mod(wh,16)]) #expand to multiple of 16 for videoCodecs
                 self.roiSq.append([wh,wh,roi[0]-wh/2,roi[1]-wh/2,self.ArenaDiameter])
                 
         else:
-            print 'all arenas defined'
+            print 'all arenas defined:'
             
             self.roiSq=np.array(list(self.roiSq)).astype('int')
             head, tail = os.path.split(self.out_file)
@@ -126,7 +128,7 @@ class gui_circles(object):
             roi_both=np.hstack((self.roiAll,self.roiSq))
             self.rois=pd.DataFrame(data=roi_both,columns=headers,index=None)
             self.rois.to_csv(self.out_file,sep=',')
-            print 'saved roi data'
+            print rois
             plt.close()
             
             #release the main script

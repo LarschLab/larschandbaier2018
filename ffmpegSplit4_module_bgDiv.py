@@ -2,32 +2,43 @@
 """
 Created on Fri Dec 04 14:16:45 2015
 
+split video into tiles based on tileList (width, height, x, y)
+Ask user to select circular arena(s) on median video frame
+Start ffmpeg in sub process to perform splitting and background division of each frame
+ffmpeg comand is assembled as a string - that part is not pretty...
+
 @author: jlarsch
 """
-# split video into tiles based on tileList (width, height, x, y)
 import subprocess as sp
 import os
 import numpy as np
 import functions.video_functions as vf
-import functions.unTileVideo_b as unTileVideo_b
 import tkFileDialog
+import functions.gui_circle as gc
+
 
 avi_path = tkFileDialog.askopenfilename(initialdir='d:/data/b/2016/')
 print avi_path
-Scl=unTileVideo_b.UnTileArenaVideo(avi_path)
 
-def videoSplit(aviP,tileList):
+def videoSplit(aviP):
     
     # path to ffmpeg bin
     FFMPEG_PATH = 'c:/ffmpeg/bin/ffmpeg.exe'
-    #FFMPEG_PATH = 'ffmpeg.exe'
     
     head, tail = os.path.split(aviP)
     
-    #calculate median background image for background division
+    #get median background image for background division
     vf.getMedVideo(aviP,9,1)
     bgPath=(head+'/bgMed.tif')
     print 'background generated'
+    
+    #ask user for arenas
+    scaleData=gc.get_circle_rois(bgPath,'_scale',0)[0]
+    tileList=np.array(scaleData.ix[:,3:7].values,dtype='int64')
+    
+    vp=vf.getVideoProperties(avi_path)
+    fps_s=str(vp['fps'])
+    
     #assemble ffmpeg command
     
     fc='' #start with empty filter command
@@ -35,12 +46,8 @@ def videoSplit(aviP,tileList):
     spc='' #start with empty split command
     numTiles=np.shape(tileList)[0]
     for i in range(numTiles):
-        print tileList
-        print np.shape(tileList)[0]
-        print i
-        print tileList[i]
-        print np.append(tileList[i],i+1)
         #create subdirectories for split output
+
         directory=head+'/'+ str(i+1)+'/'
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -55,14 +62,10 @@ def videoSplit(aviP,tileList):
         spc=spc+spcNew
 
     #command string for background subtraction
-    #cmdBG=('[1:0] setsar=sar=1,format=rgba [1sared]; [0:0]format=rgba [0rgbd];[0rgbd] [1sared] blend=all_mode=\'divide\':repeatlast=1,format=yuva422p10le,split={0} ').format(numTiles)
-    #cmdBG=('[1:0] setsar=sar=1 [1sared]; [0:0][1sared] blend=all_mode=\'divide\':repeatlast=1,split={0} ').format(numTiles)
     cmdBG=('[1:0] setsar=sar=1 [1sared]; [0:0][1sared] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
 
-   #fc=cmdBG+fc[:-1]
     fc=cmdBG+spc+';'+''.join(str(w) for w in fc)
-    print fc
-    #print cmdBG
+
     cmd=[FFMPEG_PATH,
     '-i', aviP,
     '-i', bgPath,
@@ -75,7 +78,7 @@ def videoSplit(aviP,tileList):
     #'-q:v', '5',
     #'-g', '10',
     #'-keyint_min','10',
-    '-r','160',
+    '-r',fps_s,
     '-filter_complex', fc[:-1]]
 
     cmd.extend(mc[1:])    
@@ -84,4 +87,4 @@ def videoSplit(aviP,tileList):
     sp.Popen(cmd)
     
 
-videoSplit(avi_path,Scl.roiSq)
+videoSplit(avi_path)
