@@ -86,7 +86,7 @@ class gui_circles(object):
             self.rois=pd.read_csv(out_file,header=0,index_col=0,sep=',')
             self.roiAll=self.rois.ix[:,0:3].values
             self.roiSq=self.rois.ix[:,3:7].values
-            self.ArenaDiameter=self.rois.ix[:,8].values
+            self.ArenaDiameter=self.rois.ix[:,7].values
 
     #for each pick, check if still need points (want a total of 4 points)        
     def onpick1(self,event):
@@ -114,9 +114,9 @@ class gui_circles(object):
                 #print self.CirclesDone
                 self.roiAll.append(roi)
                 largest_square=np.min([self.frame.shape[0:1]-roi[0:1]-4,roi[0:1]])*2
-                largest_square=largest_square-16+np.mod(largest_square,16)
+                largest_square=largest_square-4+np.mod(largest_square,4)
                 wh=np.min([largest_square,roi[2]*2+roi[2]*.1]) #width and height of roi around circular roi
-                wh=np.min([largest_square,wh+16-np.mod(wh,16)]) #expand to multiple of 16 for videoCodecs
+                wh=np.min([largest_square,wh+4-np.mod(wh,4)]) #expand to multiple of 4 for videoCodecs
                 self.roiSq.append([wh,wh,roi[0]-wh/2,roi[1]-wh/2,self.ArenaDiameter])
                 
         else:
@@ -128,7 +128,7 @@ class gui_circles(object):
             roi_both=np.hstack((self.roiAll,self.roiSq))
             self.rois=pd.DataFrame(data=roi_both,columns=headers,index=None)
             self.rois.to_csv(self.out_file,sep=',')
-            print rois
+            print self.rois
             plt.close()
             
             #release the main script

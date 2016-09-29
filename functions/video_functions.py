@@ -88,9 +88,63 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0):
             gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
             allMed=np.dstack((allMed,gray))
             
-        vidMed=np.median(allMed,axis=2)
+        vidMed=np.median(allMed,axis=2).reshape(tuple([int(allMed.shape[0]),int(allMed.shape[1]),1]))
     
+        allMed_bgSub=allMed/vidMed.astype('float')
+        cv2.imshow('allMed_bgSub',allMed_bgSub[:,:,0])
+
+        
+        def stretchNorm(x):
+            return (x-x.min()).astype('float')/(x.max()-x.min())
+            
+        def stretchRange(x,mi,ma):
+            return (x-mi).astype('float')/(ma-mi)
+            
+        def norm(x):
+            return x.astype('float')/x.max()
+            
+        def stretchDirect(x,mi,ma):
+            return (x-mi)*(ma/(ma-mi))
+        
+        allMed_bgSub_norm=(norm(allMed_bgSub)*255).astype('uint8')
+        
+        cv2.imshow('allMed_bgSub_norm',allMed_bgSub_norm[:,:,0])
+        
+        minval2=np.min(allMed_bgSub_norm) - 20
+#        minval2=np.min(allMed) 
+        maxval2=np.max(allMed_bgSub_norm)
+        
+#        allMedStretch=(stretchRange(allMed,minval2,maxval2)*255).astype('uint8')
+        allMedStretch=stretchDirect(allMed,minval2,255).astype('uint8')
+        allMedStretch[allMedStretch<1]=1
+        vidMedStretch=stretchDirect(vidMed,minval2,255).astype('uint8')
+        vidMedStretch[vidMedStretch<1]=1
+        cv2.imshow('vidMedStretch',vidMedStretch)
+        
+        allMedStretch_bgSub=(allMedStretch.astype('float'))/(vidMedStretch)
+        allMedStretch_bgSub[allMedStretch_bgSub>.95]=.95
+        allMedStretch_bgSub=(norm(allMedStretch_bgSub)*255).astype('uint8')
+        allMedStretch_bgSub[allMedStretch_bgSub<1]=1
+        
+        print type(allMedStretch_bgSub)
+        
+        
         if saveFile:
             cv2.imwrite(bg_file,vidMed)
+            bg_file=(head+'/bgMed_stretch.tif')
+            cv2.imwrite(bg_file,vidMedStretch)
+            av_file=(head+'/bgcorrect.avi')
+            fourcc=cv2.VideoWriter_fourcc('X', 'V', 'I', 'D')
+            writer = cv2.VideoWriter(av_file, fourcc, 30, (vidMed.shape[0],vidMed.shape[1]))
 
-        return vidMed,bg_file
+            for i in range(allMedStretch_bgSub.shape[2]):
+                print i
+                x=np.squeeze(allMedStretch_bgSub[:,:,i])
+                writer.write(x)
+
+            cv2.imshow('allMedStretch_bgSub',x)
+            bg_file=(head+'/bgMed_correctedframe.tif')
+            cv2.imwrite(bg_file,x)
+            writer.release()
+
+        return vidMed,bg_file,minval2

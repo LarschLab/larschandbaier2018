@@ -17,7 +17,7 @@ import tkFileDialog
 import functions.gui_circle as gc
 
 
-avi_path = tkFileDialog.askopenfilename(initialdir='d:/data/b/2016/')
+avi_path = tkFileDialog.askopenfilename(initialdir='c:/test/')
 print avi_path
 
 def videoSplit(aviP):
@@ -28,7 +28,7 @@ def videoSplit(aviP):
     head, tail = os.path.split(aviP)
     
     #get median background image for background division
-    vf.getMedVideo(aviP,9,1)
+    vidMed,bg_file,minval2=vf.getMedVideo(aviP,9,1)
     bgPath=(head+'/bgMed.tif')
     print 'background generated'
     
@@ -56,13 +56,13 @@ def videoSplit(aviP):
         fc=fc+''.join(str(w) for w in fcNew)
         mcn1='[out'+str(i+1)+']'
         mcn2=directory+'split_'+str(i+1)+'_'+tail+''
-        mcNew=['-map',mcn1,'-c:v','libxvid','-q:v','5','-g','10',mcn2]
+        mcNew=['-map',mcn1,'-c:v','libxvid','-q:v','4','-g','10',mcn2]
         mc.extend(mcNew)
         spcNew=('[int{0}]').format(i+1)
         spc=spc+spcNew
 
     #command string for background subtraction
-    cmdBG=('[1:0] setsar=sar=1 [1sared]; [0:0][1sared] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
+    cmdBG=('[1:0] setsar=sar=1,lutyuv=y=(val-'+str(minval2)+')*(maxval/(maxval-'+str(minval2)+')) [1scaled]; [0:0]lutyuv=y=(val-'+str(minval2)+')*(maxval/(maxval-'+str(minval2)+')) [0scaled];[0scaled][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
 
     fc=cmdBG+spc+';'+''.join(str(w) for w in fc)
 

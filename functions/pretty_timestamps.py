@@ -23,7 +23,7 @@ t=df.values[:,0]
 plt.plot((t-t[0])/10000000.0)
 iv=np.diff(t/10000000.0)
 plt.figure()
-plt.hist(iv,bins=np.arange(0.0055,0.03,0.0001))
+plt.hist(iv,bins=np.arange(0.0055,0.07,0.0001))
 plt.yscale('log')
 print (t[-1]-t[0])/10000000.0
 
