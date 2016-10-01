@@ -44,18 +44,23 @@ def videoSplit(aviP):
     fps_s=str(vp['fps'])
     
     bg_file_mask=(head+'/bgMed_mask.tif')
-    bg=cv2.imread(bgPath)
-    bg = cv2.cvtColor(bg, cv2.COLOR_RGB2GRAY)
+    bg_mask=np.zeros(vidMed.shape,dtype='uint8')
+
     circleList=np.array(scaleData.ix[:,0:3].values,dtype='int64')
     
     def circleMask(a,b,r,n):
         y,x = np.ogrid[-a:n-a, -b:n-b]
         return (x*x + y*y <= r*r)
+
+    vidMedMask=vidMed.copy()
+    
     
     for i in range(numTiles):
-        bg[~circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg.shape[0])]=minval2
+        bg_mask[~circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg_mask.shape[0])]=255
+        vidMedMask[~circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg_mask.shape[0])]=1
         
-    cv2.imwrite(bg_file_mask,bg)
+    cv2.imwrite(bg_file_mask,bg_mask)
+#    cv2.imwrite(bgPath,vidMedMask)
     
     
     
@@ -82,12 +87,15 @@ def videoSplit(aviP):
         spc=spc+spcNew
 
     #command string for background subtraction
-    cmdBG=('[1:0] setsar=sar=1,format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [1scaled]; [0:0]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [0scaled];[0scaled][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
+    cmdBG=('[1:0] setsar=sar=1, format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [1scaled]; [0:0]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [0scaled];[2:0] setsar=sar=1,format=gray[2scaled];[0scaled][2scaled] blend=all_mode=\'addition\':repeatlast=1[0masked];[0masked][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
 
     fc=cmdBG+spc+';'+''.join(str(w) for w in fc)
 
     cmd=[FFMPEG_PATH,
     '-i', aviP,
+    '-r',fps_s,
+    '-i', bgPath,
+    '-r',fps_s,
     '-i', bg_file_mask,
     '-y',
     #'-c:v', 'libx264',
