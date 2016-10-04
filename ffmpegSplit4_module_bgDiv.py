@@ -17,7 +17,7 @@ import tkFileDialog
 import functions.gui_circle as gc
 import cv2
 
-avi_path = tkFileDialog.askopenfilename(initialdir='c:/test/')
+avi_path = tkFileDialog.askopenfilename(initialdir='d:/b/2016/')
 print avi_path
 
 def videoSplit(aviP):
@@ -44,7 +44,7 @@ def videoSplit(aviP):
     fps_s=str(vp['fps'])
     
     bg_file_mask=(head+'/bgMed_mask.tif')
-    bg_mask=np.zeros(vidMed.shape,dtype='uint8')
+    bg_mask=np.ones(vidMed.shape,dtype='uint8')+5
 
     circleList=np.array(scaleData.ix[:,0:3].values,dtype='int64')
     
@@ -87,15 +87,24 @@ def videoSplit(aviP):
         spc=spc+spcNew
 
     #command string for background subtraction
-    cmdBG=('[1:0] setsar=sar=1, format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [1scaled]; [0:0]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [0scaled];[2:0] setsar=sar=1,format=gray[2scaled];[0scaled][2scaled] blend=all_mode=\'addition\':repeatlast=1[0masked];[0masked][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
+#    cmdBG=('[1:0] setsar=sar=1, format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [1scaled]; [0:0]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [0scaled];[2:0] setsar=sar=1,format=gray[2scaled];[0scaled][2scaled] blend=all_mode=\'addition\':repeatlast=1[0masked];[0masked][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
+
+#    cmdBG=('[1:0] setsar=sar=1 [1scaled];[2:0] setsar=sar=1 [2scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
+#    cmdBG=('[1:0] setsar=sar=1, format=gray[1scaled];[2:0] setsar=sar=1, format=gray[2scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')):u=128:v=128[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
+#    cmdBG=('[1:0] setsar=sar=1,format=gray [1scaled];[2:0] setsar=sar=1[2scaled];[0:0]format=gray[0gray];[0gray][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
+
+#previous standard bg correction without histogram scaling
+    cmdBG=('[1:0] setsar=sar=1 [1scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
+    
+#currently the best settings to preserve most detail and use the full range of pixel values in the output.    
+#    cmdBG=('[1:0] setsar=sar=1 [1scaled];[2:0] setsar=sar=1[2scaled];[0:0]format=gray[0gray];[0gray][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
+
 
     fc=cmdBG+spc+';'+''.join(str(w) for w in fc)
 
     cmd=[FFMPEG_PATH,
     '-i', aviP,
-    '-r',fps_s,
     '-i', bgPath,
-    '-r',fps_s,
     '-i', bg_file_mask,
     '-y',
     #'-c:v', 'libx264',

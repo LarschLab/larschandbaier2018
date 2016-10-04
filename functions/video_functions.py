@@ -123,7 +123,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0):
         vidMed=np.expand_dims(vidMed,axis=2)
         
         allMed_bgSub=bgDiv8bit(allMed,vidMed)
-        cv2.imshow('allMed_bgSub',allMed_bgSub[:,:,0])        
+#        cv2.imshow('allMed_bgSub',allMed_bgSub[:,:,0])        
 #        allMed_bgSub_norm=(norm(allMed_bgSub)*255).astype('uint8')
         
 #        allMed_bgSub_norm=allMed_bgSub.copy()
@@ -140,7 +140,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0):
 #        allMedStretch=(stretchRange(allMed,minval2,maxval2)*255).astype('uint8')
         allMedStretch=stretchDirect(allMed,minval2,255)
         #allMedStretch[allMedStretch<1]=1
-        cv2.imshow('allMedStretch',allMedStretch[:,:,0])
+#        cv2.imshow('allMedStretch',allMedStretch[:,:,0])
         
 #        vidMedStretch=(np.median(allMedStretch,axis=2)).astype('uint8')
         vidMedStretch=stretchDirect(vidMed,minval2,250)
@@ -148,7 +148,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0):
         
         
 #        vidMedStretch[vidMedStretch<1]=1
-        cv2.imshow('vidMedStretch',vidMedStretch)
+#        cv2.imshow('vidMedStretch',vidMedStretch)
         
         allMedStretch_bgSub=bgDiv8bit(allMedStretch,vidMedStretch)
 #        allMedStretch_bgSub[allMedStretch_bgSub>1]=1
@@ -171,7 +171,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0):
                 x=(np.squeeze(allMedStretch_bgSub[:,:,i])).astype('uint8')
                 writer.write(x)
 
-            cv2.imshow('allMedStretch_bgSub',x)
+#            cv2.imshow('allMedStretch_bgSub',x)
             bg_file=(head+'/bgMed_correctedframe.tif')
             cv2.imwrite(bg_file,x)
             writer.release()
