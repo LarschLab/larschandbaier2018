@@ -2,6 +2,7 @@ import numpy as np
 import os
 import scipy.io
 import datetime
+import glob
 
 import functions.plotFunctions_joh as johPlt
 import functions.randomDotsOnCircle as randSpacing
@@ -11,7 +12,7 @@ from models.pair import Pair
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
-
+forceCorrectPixelScaling=0
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
@@ -44,12 +45,18 @@ class ExperimentMeta(object):
         head=os.path.normpath(head)
         
         trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
+        self.txtTrajectories=0
         if np.equal(~os.path.isfile(trajectoryPath),-2):
             self.trajectoryPath = trajectoryPath
         else:
             trajectoryPath = os.path.join(head,'trajectories.mat')
             if np.equal(~os.path.isfile(trajectoryPath),-2):
                 self.trajectoryPath = trajectoryPath
+            else:
+                tmp=glob.glob(head+'\\PositionTxt*.txt')
+                if tmp:
+                    self.trajectoryPath=tmp[0]
+                    self.txtTrajectories=1
                 
         AnSizeFilePath = os.path.join(head,'animalSize.txt')
         if np.equal(~os.path.isfile(AnSizeFilePath),-2):
@@ -66,9 +73,13 @@ class experiment(object):
         self.n_shift_Runs=10
         self.sPair=[]
         self.expInfo=ExperimentMeta(path)
-        self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
-        mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
-        self.rawTra=mat['trajectories']
+        try:
+            self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
+        except:
+            print('no animal size file found, using default 500px')
+            self.AnSize=np.array([[1,500],[2,500]])
+
+        self.rawTra,probTra=self.loadData()
         #some mat files begin with some number of nan entries for position. set those to zero
         nanInd=np.where(np.isnan(self.rawTra))
         if np.equal(np.shape(nanInd)[1],0) or np.greater(np.max(nanInd),1000):
@@ -108,10 +119,17 @@ class experiment(object):
             self.ShoalIndex=(self.spIAD_m()-np.nanmean(self.pair.IAD()))/self.spIAD_m()
             #self.totalPairTravel=sum(self.Pair.totalTravel)
             self.avgSpeed=self.pair.avgSpeed
-            probTra=mat['probtrajectories']
             self.idQuality=np.mean(probTra[probTra>=0])*100
 
-    
+    def loadData(self):
+        if self.expInfo.txtTrajectories==0:
+            mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
+            return mat['trajectories'],mat['probtrajectories']
+        else:
+            with open(self.expInfo.trajectoryPath) as f:
+                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',')
+            return mat[:,:-1].reshape((mat.shape[0],2,2)),[1,1]
+            
 
     def addPair(self,pair):
         
@@ -260,7 +278,7 @@ class experiment(object):
         plt.xlim([0.5, 3])
         
         tmp=[an.at_bottom_of_dish_stack() for an in self.pair.animals]
-        if np.sum(tmp)==0:
+        if np.sum(tmp)==0 or self.expInfo.txtTrajectories:
             plt.xticks([1.25,2.25],['same','dish'])
 
         else:
