@@ -44,20 +44,20 @@ def videoSplit(aviP):
     fps_s=str(vp['fps'])
     
     bg_file_mask=(head+'/bgMed_mask.tif')
-    bg_mask=np.ones(vidMed.shape,dtype='uint8')+5
+    bg_mask=np.ones(vidMed.shape,dtype='uint8')*255
 
     circleList=np.array(scaleData.ix[:,0:3].values,dtype='int64')
     
     def circleMask(a,b,r,n):
-        y,x = np.ogrid[-a:n-a, -b:n-b]
+        y,x = np.ogrid[-a:n[0]-a, -b:n[1]-b]
         return (x*x + y*y <= r*r)
 
     vidMedMask=vidMed.copy()
     
     
     for i in range(numTiles):
-        bg_mask[~circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg_mask.shape[0])]=255
-        vidMedMask[~circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg_mask.shape[0])]=1
+        bg_mask[circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg_mask.shape)]=5
+#        vidMedMask[~circleMask(circleList[i,1],circleList[i,0],circleList[i,2],bg_mask.shape[0])]=1
         
     cv2.imwrite(bg_file_mask,bg_mask)
 #    cv2.imwrite(bgPath,vidMedMask)
@@ -87,17 +87,12 @@ def videoSplit(aviP):
         spc=spc+spcNew
 
     #command string for background subtraction
-#    cmdBG=('[1:0] setsar=sar=1, format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [1scaled]; [0:0]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')) [0scaled];[2:0] setsar=sar=1,format=gray[2scaled];[0scaled][2scaled] blend=all_mode=\'addition\':repeatlast=1[0masked];[0masked][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
-
-#    cmdBG=('[1:0] setsar=sar=1 [1scaled];[2:0] setsar=sar=1 [2scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
-#    cmdBG=('[1:0] setsar=sar=1, format=gray[1scaled];[2:0] setsar=sar=1, format=gray[2scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')):u=128:v=128[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
-#    cmdBG=('[1:0] setsar=sar=1,format=gray [1scaled];[2:0] setsar=sar=1[2scaled];[0:0]format=gray[0gray];[0gray][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
 
 #previous standard bg correction without histogram scaling
-    cmdBG=('[1:0] setsar=sar=1 [1scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
+#    cmdBG=('[1:0] setsar=sar=1 [1scaled];[0:0][1scaled] blend=all_mode=\'divide\':repeatlast=1,format=gray,split={0} ').format(numTiles)
     
 #currently the best settings to preserve most detail and use the full range of pixel values in the output.    
-#    cmdBG=('[1:0] setsar=sar=1 [1scaled];[2:0] setsar=sar=1[2scaled];[0:0]format=gray[0gray];[0gray][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
+    cmdBG=('[1:0] setsar=sar=1 [1scaled];[2:0] setsar=sar=1[2scaled];[0:0]format=gray[0gray];[0gray][1scaled] blend=all_mode=\'divide\':repeatlast=1[bgdiv];[bgdiv]format=gray,lutyuv=y=(val-'+str(minval2)+')*(255/(255-'+str(minval2)+')),format=gray[bgdivStr];[bgdivStr][2scaled] blend=all_mode=\'addition\':repeatlast=1, split={0} ').format(numTiles)
 
 
     fc=cmdBG+spc+';'+''.join(str(w) for w in fc)
@@ -107,14 +102,6 @@ def videoSplit(aviP):
     '-i', bgPath,
     '-i', bg_file_mask,
     '-y',
-    #'-c:v', 'libx264',
-    #'-maxrate', '5M',
-    #'-minrate', '5M',
-    #'-threads', '0',
-    #'-c:v', 'libxvid',
-    #'-q:v', '5',
-    #'-g', '10',
-    #'-keyint_min','10',
     '-r',fps_s,
     '-filter_complex', fc[:-1]]
 
