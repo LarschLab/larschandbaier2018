@@ -87,7 +87,7 @@ class experiment(object):
         else:
             LastNan=np.max(nanInd)+1
         
-        self.rawTra[:LastNan,:,:]=0
+        self.rawTra[:LastNan,:,:]=self.rawTra[LastNan+1,:,:]
         self.skipNanInd=LastNan
 
         self.maxPixel=np.nanmax(self.rawTra,0)
@@ -121,14 +121,19 @@ class experiment(object):
             self.avgSpeed=self.pair.avgSpeed
             self.idQuality=np.mean(probTra[probTra>=0])*100
 
-    def loadData(self):
+    def loadData(self,pairID=0):
         if self.expInfo.txtTrajectories==0:
             mat=scipy.io.loadmat(self.expInfo.trajectoryPath)
             return mat['trajectories'],mat['probtrajectories']
         else:
             with open(self.expInfo.trajectoryPath) as f:
                 mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',')
-            return mat[:,:-1].reshape((mat.shape[0],2,2)),[1,1]
+        
+        
+        #mat[0:900,-3]
+        #mat[:,-3]=512-mat[:,-3]
+        #mat[:,-2]=512-mat[:,-2]
+        return mat[:,[pairID,pairID+1,-3,-2]].reshape((mat.shape[0],2,2)),[1,1]
             
 
     def addPair(self,pair):
