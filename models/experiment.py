@@ -19,7 +19,7 @@ forceCorrectPixelScaling=0
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
-    def __init__(self,path,arenaDiameter_mm=100):
+    def __init__(self,path,txtPath,arenaDiameter_mm=100):
         
         if forceCorrectPixelScaling:
             loadPixelScaling()
@@ -68,20 +68,25 @@ class ExperimentMeta(object):
         head, tail = os.path.split(path)
         head=os.path.normpath(head)
         
-        trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
-        self.txtTrajectories=0
-        if np.equal(~os.path.isfile(trajectoryPath),-2):
-            self.trajectoryPath = trajectoryPath
-        else:
-            trajectoryPath = os.path.join(head,'trajectories.mat')
+        if txtPath == []:
+            trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
+            self.txtTrajectories=0
             if np.equal(~os.path.isfile(trajectoryPath),-2):
                 self.trajectoryPath = trajectoryPath
             else:
-                tmp=glob.glob(head+'\\PositionTxt*.txt')
-                if tmp:
-                    self.trajectoryPath=tmp[0]
-                    self.txtTrajectories=1
-                
+                trajectoryPath = os.path.join(head,'trajectories.mat')
+                if np.equal(~os.path.isfile(trajectoryPath),-2):
+                    self.trajectoryPath = trajectoryPath
+                else:
+                    tmp=glob.glob(head+'\\PositionTxt*.txt')
+                    if tmp:
+    #                    self.trajectoryPath=tmp[0]
+                        self.trajectoryPath= tkFileDialog.askopenfilename(initialdir=head)
+                        self.txtTrajectories=1
+        else:      
+            self.trajectoryPath=txtPath
+            self.txtTrajectories=1
+            
         AnSizeFilePath = os.path.join(head,'animalSize.txt')
         if np.equal(~os.path.isfile(AnSizeFilePath),-2):
             self.AnSizeFilePath = AnSizeFilePath
@@ -93,17 +98,26 @@ class ExperimentMeta(object):
         
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
-    def __init__(self,path):
+    def __init__(self,path,txtPath=[],rng=[],data=[]):
+        self.rng=rng
         self.n_shift_Runs=10
         self.sPair=[]
-        self.expInfo=ExperimentMeta(path)
+        self.expInfo=ExperimentMeta(path,txtPath)
         try:
             self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
         except:
-            print('no animal size file found, using default 500px')
+#            print('no animal size file found, using default 500px')
             self.AnSize=np.array([[1,500],[2,500]])
 
-        self.rawTra,probTra=self.loadData()
+        if data==[]:
+            self.rawTra,probTra=self.loadData()
+        else:
+            self.rawTra=data
+            probTra=[1,1]
+
+        if rng!=[]:
+            self.rawTra=self.rawTra[rng,:,:]
+        
         #some mat files begin with some number of nan entries for position. set those to zero
         nanInd=np.where(np.isnan(self.rawTra))
         if np.equal(np.shape(nanInd)[1],0) or np.greater(np.max(nanInd),1000):
@@ -151,13 +165,14 @@ class experiment(object):
             return mat['trajectories'],mat['probtrajectories']
         else:
             with open(self.expInfo.trajectoryPath) as f:
-                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',')
+#                print(self.expInfo.trajectoryPath)
+#                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',')
+                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',',usecols=[0,1,2,3])
         
-        
-        #mat[0:900,-3]
-        #mat[:,-3]=512-mat[:,-3]
-        #mat[:,-2]=512-mat[:,-2]
-        return mat[:,[pairID,pairID+1,-3,-2]].reshape((mat.shape[0],2,2)),[1,1]
+    
+#        return mat[:,[pairID,pairID+1,-4,-3]].reshape((mat.shape[0],2,2)),[1,1]
+        tmp= mat.reshape((mat.shape[0],2,2))
+        return tmp,[1,1]
             
 
     def addPair(self,pair):

@@ -11,19 +11,21 @@ import os
 import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+import matplotlib
 import datetime
 import numpy as np
 import seaborn as sns
 
 class experiment_set(object):
-    def __init__(self,systShift=0, timeStim=1,sizePlot=0):
+    def __init__(self,csvFile,systShift=0, timeStim=0,sizePlot=0,episodes=1):
         
         self.systShift=systShift
         self.timeStim=timeStim
         self.sizePlot=sizePlot
-        
+        self.episodes=episodes
+        self.csvFile=csvFile
         self.process_csv_experiment_list()
-        self.plot_group_summaries()
+        #self.plot_group_summaries()
         
         if timeStim:
             self.plot_IAD_overTime()
@@ -34,55 +36,76 @@ class experiment_set(object):
         if self.systShift:
             self.plot_syst_shift()
             
-            
-        self.pdf.close()
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            self.pdf.close()
         
     def process_csv_experiment_list(self):
     
-        csvFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
+        if self.csvFile==[]:
+            self.csvFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
         #save pdf summary in same foldera as csv
         currentTime=datetime.datetime.now()
-        self.PdfFile=csvFile[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
-        self.df=pd.read_csv(csvFile,sep=',')
+        self.PdfFile=self.csvFile[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
+        self.df=pd.read_csv(self.csvFile,sep=',')
         self.experiments=[]
+        self.ee=[] #experiments chopped into episodes
         self.systShiftAll=[]
         
-        self.pdf = PdfPages(self.PdfFile)
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            self.pdf = PdfPages(self.PdfFile)
             
         for index, row in self.df.iterrows():
             print 'processing: ', row['aviPath']
             currAvi=row['aviPath']
-            self.experiments.append(experiment(currAvi))
-            self.experiments[index].plotOverview(row['condition'])
-            self.pdf.savefig()  # saves the current figure as pdf page
-            plt.close()
+            currTxt=row['txtPath']
+            self.experiments.append(experiment(currAvi,currTxt))
+            mpl_is_inline = 'inline' in matplotlib.get_backend()
+            if not mpl_is_inline:
+            
+                self.experiments[index].plotOverview(row['condition'])
+                self.pdf.savefig()  # saves the current figure as pdf page
+                plt.close()
+            numEpi=self.episodes
+            for i in range(numEpi):
+                rng=np.arange(i*30*600,(i+1)*30*600)
+#                print('episode: ', i, ' , ', rng[0],rng[-1])
+                self.ee.append(experiment(currAvi,currTxt,rng=rng,data=self.experiments[-1].rawTra))
+                
+                mpl_is_inline = 'inline' in matplotlib.get_backend()
+                if not mpl_is_inline:
+                    self.ee[(numEpi*index)+i].plotOverview(row['condition'])
+                    self.pdf.savefig()  # saves the current figure as pdf page
+                    plt.close()
             
             if self.systShift:
                 self.systShiftAll.append(shiftedPairSystematic(self.experiments[index].Pair, self.experiments[index].expInfo, 60))
     
     def plot_group_summaries(self):
-        self.df['ShoalIndex']=pd.DataFrame([f.ShoalIndex for f in self.experiments])
-        self.df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in self.experiments])
+        self.df['ShoalIndex']=pd.DataFrame([f.ShoalIndex([]) for f in self.experiments])
+#        self.df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in self.experiments])
         self.df['avgSpeed']=pd.DataFrame([f.avgSpeed for f in self.experiments])
         fig, axes = plt.subplots(nrows=1, ncols=2)
         
         sns.boxplot(ax=axes[0],x='condition',y='ShoalIndex',data=self.df,width=0.2)
         sns.stripplot(ax=axes[0],x='condition',y='ShoalIndex',data=self.df, size=4,jitter=True,edgecolor='gray')
 
-        sns.boxplot(ax=axes[1],x='condition',y='avgSpeed',data=self.df,width=0.2)
-        sns.stripplot(ax=axes[1],x='condition',y='avgSpeed',data=self.df, size=4,jitter=True,edgecolor='gray')
+        #sns.boxplot(ax=axes[1],x='condition',y='avgSpeed',data=self.df,width=0.2)
+        #sns.stripplot(ax=axes[1],x='condition',y='avgSpeed',data=self.df, size=4,jitter=True,edgecolor='gray')
         
         axes[0].set_ylim(-0.1,1)
         axes[1].set_ylim(0,)
-        
-        self.pdf.savefig()
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            self.pdf.savefig()
             
     def plot_IAD_overTime(self):
         plt.figure(figsize=(8, 2))
         IADall=[]
-        IADall.append([x.Pair.IAD[0:30*60*90] for x in self.experiments])
+        IADall.append([x.pair.IAD()[0:30*60*50] for x in self.experiments])
         t=np.nanmean(IADall,axis=1)
-        smIAD_mAll=np.nanmean([f.sPair.spIAD_m for f in self.experiments])
+        smIAD_mAll=np.nanmean([f.spIAD_m() for f in self.experiments])
         x=np.arange(float(np.shape(t[0])[0]))/(self.experiments[0].expInfo.fps*60)
         #stim=np.arange(float(np.shape(t[0])[0]))/(experiment[0].expInfo.fps*60)
         plt.plot(x,t[0])
