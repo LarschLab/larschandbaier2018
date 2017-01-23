@@ -51,16 +51,44 @@ class experiment_set(object):
         self.experiments=[]
         self.ee=[] #experiments chopped into episodes
         self.systShiftAll=[]
+
+
         
         mpl_is_inline = 'inline' in matplotlib.get_backend()
         if not mpl_is_inline:
             self.pdf = PdfPages(self.PdfFile)
             
         for index, row in self.df.iterrows():
+            
+            ee_StartFrames=[]
+            ee_AnimalIndex=[]
+            ee_AnimalSet=[]
+            ee_inDishTime=[]
+            ee_epiName=[]
+            ee_si=[]
+        
             print 'processing: ', row['aviPath']
             currAvi=row['aviPath']
             currTxt=row['txtPath']
+            try:                
+                currAnimalSet=row['set']
+            except:
+                currAnimalSet=0
+            
+            try:                
+                currInDishTime=float(row['inDish'])
+            except:
+                currInDishTime=0
+                
+                
             self.experiments.append(experiment(currAvi,currTxt))
+
+            try:
+                episodeAll = pd.read_csv(currTxt, names=['episode'], sep=',|\)', engine='python',usecols=[7],index_col=None,header=None)
+                print('read episode names')
+            except:
+                episodeAll=[]
+            
             mpl_is_inline = 'inline' in matplotlib.get_backend()
             if not mpl_is_inline:
             
@@ -70,8 +98,18 @@ class experiment_set(object):
             numEpi=self.episodes
             for i in range(numEpi):
                 rng=np.arange(i*30*600,(i+1)*30*600)
+                ee_StartFrames.append(rng[0])
+                ee_AnimalIndex.append(index)
+                ee_AnimalSet.append(currAnimalSet)
+                ee_inDishTime.append((rng[0]/(30*60))+currInDishTime)
+                try:
+                    ee_epiName.append(episodeAll.loc[rng[0]].values[0])
+                except:
+                    ee_epiName.append('n')
 #                print('episode: ', i, ' , ', rng[0],rng[-1])
                 self.ee.append(experiment(currAvi,currTxt,rng=rng,data=self.experiments[-1].rawTra))
+                
+                ee_si.append(self.ee[-1].ShoalIndex())
                 
                 mpl_is_inline = 'inline' in matplotlib.get_backend()
                 if not mpl_is_inline:
@@ -81,7 +119,27 @@ class experiment_set(object):
             
             if self.systShift:
                 self.systShiftAll.append(shiftedPairSystematic(self.experiments[index].Pair, self.experiments[index].expInfo, 60))
-    
+             
+             
+            #save results for each file
+            si=np.array(ee_si)
+    #            txtFile=np.array([x.expInfo.trajectoryPath for x in self.ee])
+            animalSet=np.array(ee_AnimalSet)
+            episodeStartFrame=np.array(ee_StartFrames)
+            AnimalIndex=np.array(ee_AnimalIndex)
+            inDishTime=np.array(ee_inDishTime)
+            episodeName=np.array(ee_epiName)
+            
+            df=pd.DataFrame(
+            {'animalSet':animalSet,'animalIndex':AnimalIndex,
+            'si':si,'episode':episodeName,'epStart':episodeStartFrame,
+            'inDishTime':inDishTime})
+            
+            csvFileOut=currTxt[:-4]+'_siSummary.csv'
+            df.to_csv(csvFileOut,encoding='utf-8')
+            
+            
+               
     def plot_group_summaries(self):
         self.df['ShoalIndex']=pd.DataFrame([f.ShoalIndex([]) for f in self.experiments])
 #        self.df['totalTravel']=pd.DataFrame([f.totalPairTravel for f in self.experiments])
