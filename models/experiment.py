@@ -3,12 +3,15 @@ import os
 import scipy.io
 import datetime
 import glob
+import tkFileDialog
+import pickle
 
 import functions.plotFunctions_joh as johPlt
 import functions.randomDotsOnCircle as randSpacing
 import functions.video_functions as vf
 from models.pair import Pair
 
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
@@ -30,7 +33,28 @@ class ExperimentMeta(object):
         if path.endswith('.avi') or path.endswith('.mp4'):
             self.aviPath = path
             #get video meta data
-            vp=vf.getVideoProperties(path) #video properties
+            
+            #check if videoData has been read already
+            head, tail = os.path.split(path)
+            head=os.path.normpath(head)
+            videoPropsFn=os.path.join(head,'videoProps.pickle')
+            
+            if np.equal(~os.path.isfile(videoPropsFn),-1):
+                vp=vf.getVideoProperties(path) #video properties
+                #save video data for re-use            
+                with open(videoPropsFn, 'w') as f:
+                    pickle.dump([vp], f)
+                    
+
+                
+            else:
+                
+                
+                with open(videoPropsFn, 'r') as f:
+                    vp=pickle.load(f)[0]
+                #print('re-using VideoProps')
+                
+                
             self.ffmpeginfo = vp
             self.videoDims = [vp['width'] , vp['height']]
             self.numFrames=vp['nb_frames']
