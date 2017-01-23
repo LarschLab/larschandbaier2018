@@ -357,10 +357,12 @@ class experiment(object):
         plt.tight_layout()
         plt.show()
         
-        currentTime=datetime.datetime.now()
-        self.pdfPath=self.expInfo.aviPath[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
-        with PdfPages(self.pdfPath) as pdf:
-            pdf.savefig()
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            currentTime=datetime.datetime.now()
+            self.pdfPath=self.expInfo.aviPath[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
+            with PdfPages(self.pdfPath) as pdf:
+                pdf.savefig()
             
 #        plt.figure()
 #        a1=self.Pair.animals[0].ForceMat

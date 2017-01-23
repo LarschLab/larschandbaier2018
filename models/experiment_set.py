@@ -115,14 +115,17 @@ class experiment_set(object):
         plt.xlabel('time [minutes]')
         plt.ylabel('IAD [mm]')
         plt.title('Inter Animal Distance over time')
+        self.IAD_overTime=t
         
-        self.pdf.savefig()
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            self.pdf.savefig()
         
             
     def plot_shoaling_vs_size(self):
         AnS=np.sqrt(np.sort(np.array([f.AnSize[:,1] for f in self.experiments]),axis=1))/3
         AnSm=np.mean(AnS,axis=1)
-        si=([f.ShoalIndex for f in self.experiments])
+        si=([f.ShoalIndex([]) for f in self.experiments])
         xErr=np.abs(AnS[:,0]-AnS[:,1])/2
         plt.figure()
         ebx=plt.errorbar(AnSm,si,xerr=xErr,ecolor='k',fmt=' ')
@@ -140,7 +143,9 @@ class experiment_set(object):
         plt.scatter(AnSd[:],leadershipIndex[:])
         plt.xlabel('size difference [mm]')
         plt.ylabel('leadership index')
-        self.pdf.savefig()
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            self.pdf.savefig()
         
     def plot_syst_shift(self):
         a=np.array(self.systShiftAll)
@@ -153,4 +158,6 @@ class experiment_set(object):
         plt.xlim([-1,60])
         plt.xlabel('time shift [s]')
         plt.ylabel('inter animal distance [mm]')
-        self.pdf.savefig()
+        mpl_is_inline = 'inline' in matplotlib.get_backend()
+        if not mpl_is_inline:
+            self.pdf.savefig()
