@@ -17,7 +17,7 @@ Created on Thu Mar 31 11:29:28 2016
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sc
-#import scipy.spatial
+import scipy.spatial
 
 
 def randomDotsOnCircle(rad=50, num=1000):
@@ -33,7 +33,7 @@ def randomDotsOnCircle(rad=50, num=1000):
     
     a=[x,y]
     dotList=np.array(a).T
-    tree=sc.spatial.cKDTree(dotList,leafsize=10)
+    tree=scipy.spatial.cKDTree(dotList,leafsize=10)
     
     TheResult=[]
     for item in dotList:

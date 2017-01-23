@@ -154,7 +154,7 @@ class experiment(object):
             IADHistall.append([x.IADhist()[0:30*60*90] for x in self.sPair])
             self.spIADhist_m=np.nanmean(IADHistall,axis=1)            
             
-            self.ShoalIndex=(self.spIAD_m()-np.nanmean(self.pair.IAD()))/self.spIAD_m()
+            #self.ShoalIndex=(self.spIAD_m()-np.nanmean(self.pair.IAD()))/self.spIAD_m()
             #self.totalPairTravel=sum(self.Pair.totalTravel)
             self.avgSpeed=self.pair.avgSpeed
             self.idQuality=np.mean(probTra[probTra>=0])*100
@@ -184,14 +184,32 @@ class experiment(object):
             self.pair=pair
             return self.pair
         
-    def spIAD_m(self):
-        x=np.nanmean([np.nanmean(x.IAD()) for x in self.sPair])
+    def spIAD_m(self,rng=[]):
+        
+        if rng==[]:
+            x=np.nanmean([np.nanmean(x.IAD()) for x in self.sPair])
+        else:
+            x=np.nanmean([np.nanmean(x.IAD()[rng]) for x in self.sPair])
         return x
         
-    def spIAD_std(self):
-        x=np.nanstd([np.nanmean(x.IAD()) for x in self.sPair])
+    def IAD_m(self,rng=[]):
+        if rng==[]:
+            x=np.nanmean(self.pair.IAD())
+        else:
+            x=np.nanmean(self.pair.IAD()[rng])
         return x
-           
+        
+    def spIAD_std(self,rng=[]):
+        if rng==[]:
+            x=np.nanstd([np.nanmean(x.IAD()) for x in self.sPair])
+        else:
+            x=np.nanstd([np.nanmean(x.IAD()[rng]) for x in self.sPair])
+        return x
+    
+    def ShoalIndex(self,rng=[]):
+        x=(self.spIAD_m(rng)-self.IAD_m(rng))/self.spIAD_m(rng)
+        return x
+      
     def load_animalShapeParameters(self):
         
         aspPath=self.expInfo.aspPath
@@ -270,7 +288,7 @@ class experiment(object):
         plt.subplot(4,4,4)
         plt.cla()
         x=[1,2]
-        y=[np.nanmean(IAD),self.spIAD_m()]
+        y=[np.nanmean(IAD),self.spIAD_m([])]
         yerr=[0,self.spIAD_std()]
         plt.bar(x, y, yerr=yerr, width=0.5,color='k')
         lims = plt.ylim()
