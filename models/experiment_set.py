@@ -70,6 +70,22 @@ class experiment_set(object):
             print 'processing: ', row['aviPath']
             currAvi=row['aviPath']
             currTxt=row['txtPath']
+            
+            try:                
+                self.episodes=row['episodes']
+            except:
+                pass
+                
+            try:                
+                episodeDur=row['epiDur']
+            except:
+                episodeDur=60
+                
+            try:                
+                currAnimal=row['animal']
+            except:
+                currAnimal=index
+                
             try:                
                 currAnimalSet=row['set']
             except:
@@ -97,9 +113,10 @@ class experiment_set(object):
                 plt.close()
             numEpi=self.episodes
             for i in range(numEpi):
-                rng=np.arange(i*30*600,(i+1)*30*600)
+                episodeFrames=self.experiments[-1].expInfo.fps*episodeDur*60
+                rng=np.arange(i*episodeFrames,(i+1)*episodeFrames)
                 ee_StartFrames.append(rng[0])
-                ee_AnimalIndex.append(index)
+                ee_AnimalIndex.append(currAnimal)
                 ee_AnimalSet.append(currAnimalSet)
                 ee_inDishTime.append((rng[0]/(30*60))+currInDishTime)
                 try:
