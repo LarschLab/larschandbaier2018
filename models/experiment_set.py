@@ -66,6 +66,7 @@ class experiment_set(object):
             ee_inDishTime=[]
             ee_epiName=[]
             ee_si=[]
+            ee_epiNr=[]
         
             print 'processing: ', row['aviPath']
             currAvi=row['aviPath']
@@ -98,7 +99,15 @@ class experiment_set(object):
                 
                 
             self.experiments.append(experiment(currAvi,currTxt))
-
+            
+            numFrames=self.experiments[-1].expInfo.numFrames
+            fps=self.experiments[-1].expInfo.fps
+            if self.episodes==-1:
+                numEpi=int(np.floor(((numFrames/fps)/60) /episodeDur))
+                print 'new episode number',numEpi
+            else:
+                numEpi=int(self.episodes)
+                
             try:
                 episodeAll = pd.read_csv(currTxt, names=['episode'], sep=',|\)', engine='python',usecols=[7],index_col=None,header=None)
                 print('read episode names')
@@ -111,10 +120,12 @@ class experiment_set(object):
                 self.experiments[index].plotOverview(row['condition'])
                 self.pdf.savefig()  # saves the current figure as pdf page
                 plt.close()
-            numEpi=self.episodes
+            
+           # print numEpi
             for i in range(numEpi):
+                ee_epiNr.append(i)
                 episodeFrames=self.experiments[-1].expInfo.fps*episodeDur*60
-                rng=np.arange(i*episodeFrames,(i+1)*episodeFrames)
+                rng=np.arange(i*episodeFrames,(i+1)*episodeFrames).astype('int')
                 ee_StartFrames.append(rng[0])
                 ee_AnimalIndex.append(currAnimal)
                 ee_AnimalSet.append(currAnimalSet)
@@ -123,7 +134,7 @@ class experiment_set(object):
                     ee_epiName.append(episodeAll.loc[rng[0]].values[0])
                 except:
                     ee_epiName.append('n')
-#                print('episode: ', i, ' , ', rng[0],rng[-1])
+                #print('episode: ', i, ' , ', rng[0],rng[-1])
                 self.ee.append(experiment(currAvi,currTxt,rng=rng,data=self.experiments[-1].rawTra))
                 
                 ee_si.append(self.ee[-1].ShoalIndex())
@@ -146,13 +157,14 @@ class experiment_set(object):
             AnimalIndex=np.array(ee_AnimalIndex)
             inDishTime=np.array(ee_inDishTime)
             episodeName=np.array(ee_epiName)
+            epiNr=np.array(ee_epiNr)
             
             df=pd.DataFrame(
             {'animalSet':animalSet,'animalIndex':AnimalIndex,
             'si':si,'episode':episodeName,'epStart':episodeStartFrame,
-            'inDishTime':inDishTime})
+            'inDishTime':inDishTime,'epiNr':epiNr})
             
-            csvFileOut=currTxt[:-4]+'_siSummary.csv'
+            csvFileOut=currTxt[:-4]+'_siSummary_epi'+str(episodeDur)+'.csv'
             df.to_csv(csvFileOut,encoding='utf-8')
             
             

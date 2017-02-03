@@ -52,7 +52,11 @@ class Pair(object):
 
     def IADhist(self):
         histBins=np.arange(100)
-        x=np.histogram(self.IAD(),bins=histBins,normed=1)[0]
+        try:
+            x=np.histogram(self.IAD()[np.isfinite(self.IAD())],bins=histBins,normed=1)[0]
+        except:
+            print 'problem'
+            x=0
         return x
     
 

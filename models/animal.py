@@ -39,6 +39,7 @@ class Animal(object):
     def wakeUp(self):
         
         self.shiftIndex=self.get_shiftIndex()
+        #print self.shiftIndex
         AnimalTimeSeriesCollection().linkAnimal(self)
         if self.pair.experiment.haveASP:
             AnimalBoutSeriesCollection().linkAnimal(self)
@@ -59,7 +60,9 @@ class Animal(object):
         minShift=self.pair.experiment.expInfo.minShift
         numFrames=self.pair.experiment.expInfo.numFrames
         if shift and self.ID==1:
+            #print numFrames, minShift
             return int(random.uniform(minShift,numFrames-minShift))
+
         else:
             return 0
         

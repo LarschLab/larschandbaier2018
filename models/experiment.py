@@ -63,7 +63,7 @@ class ExperimentMeta(object):
         else:
             self.fps=30
         
-        self.minShift=5*60*self.fps
+        self.minShift=3*60*self.fps
         #concatenate dependent file paths (trajectories, pre-analysis)
         head, tail = os.path.split(path)
         head=os.path.normpath(head)
@@ -117,6 +117,8 @@ class experiment(object):
 
         if rng!=[]:
             self.rawTra=self.rawTra[rng,:,:]
+            self.expInfo.numFrames=rng.shape[0]
+            
         
         #some mat files begin with some number of nan entries for position. set those to zero
         nanInd=np.where(np.isnan(self.rawTra))
@@ -133,9 +135,10 @@ class experiment(object):
         self.expInfo.trajectoryDiameterPx=np.mean(self.maxPixel-self.minPixel)
         #expInfo.pxPmm=expInfo.trajectoryDiameterPx/expInfo.arenaDiameter_mm
         self.expInfo.pxPmm=8.6
-        self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
+        self.expInfo.arenaCenterPx=[256,256]
+        #self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
         self.expInfo.numFrames=self.rawTra.shape[0]
-
+        
         self.load_animalShapeParameters()
         
         #proceed with animal-pair analysis if there is more than one trajectory
