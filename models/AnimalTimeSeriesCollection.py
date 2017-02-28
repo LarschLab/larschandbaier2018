@@ -141,7 +141,8 @@ class AnimalTimeSeriesCollection:
         mapBins=np.arange(-31,32)
         neighborMat=np.zeros([62,62])
 
-        neighborMat=np.histogramdd(self.position_relative_to_neighbor_rot().xy,bins=[mapBins,mapBins])[0]
+        neighborMat=np.histogramdd(self.position_relative_to_neighbor_rot().xy,bins=[mapBins,mapBins],normed=True)[0]*neighborMat.shape[0]**2
+        
         return neighborMat
     
 #------Force matrices-------
@@ -187,12 +188,17 @@ class AnimalTimeSeriesCollection:
     #used in a hacky way to determine stacking order of the two animals in experiments
     #where two dishes are stacked on top of each other.
     def PolhistBins(self):
-        x=np.linspace(0,self.animal.pair.max_out_venture(),100)   
+        #maxOut=self.animal.pair.max_out_venture()
+        maxOut=self.animal.pair.experiment.expInfo.arenaDiameter_mm/2.
+        x=np.linspace(0,maxOut,100)   
         return x
         
     def Pol_n(self):
         histData=self.positionPol().y()
         histData=histData[~np.isnan(histData)]
-        x=np.histogram(histData,bins=self.PolhistBins(),normed=1)[0]
+        bins=self.PolhistBins()
+        pph,ppeb=np.histogram(histData,bins=bins,normed=1)
+        
+        x=(pph/(np.pi*ppeb[1:]*2))*np.pi*((ppeb[-1])**2)
         return x
         

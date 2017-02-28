@@ -15,46 +15,22 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
-forceCorrectPixelScaling=0
+import matplotlib.patches as patches
+import seaborn as sns
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
-    def __init__(self,path,txtPath,arenaDiameter_mm=100):
+    def __init__(self,path,txtPath,arenaDiameter_mm=100,forceCorrectPixelScaling=0):
         
-        if forceCorrectPixelScaling:
-            loadPixelScaling()
-        else:
-            self.arenaDiameter_mm = arenaDiameter_mm
-            self.pxPmm = 0 #assign later from class 'Pair'
-        
+
+        self.arenaDiameter_mm = arenaDiameter_mm
         self.arenaCenterPx = [0,0] #assign later from class 'Pair'
 
         #If a video file name is passed, collect video parameters
         if path.endswith('.avi') or path.endswith('.mp4'):
             self.aviPath = path
             #get video meta data
-            
-            #check if videoData has been read already
-            head, tail = os.path.split(path)
-            head=os.path.normpath(head)
-            videoPropsFn=os.path.join(head,'videoProps.pickle')
-            
-            if np.equal(~os.path.isfile(videoPropsFn),-1):
-                vp=vf.getVideoProperties(path) #video properties
-                #save video data for re-use            
-                with open(videoPropsFn, 'w') as f:
-                    pickle.dump([vp], f)
-                    
-
-                
-            else:
-                
-                
-                with open(videoPropsFn, 'r') as f:
-                    vp=pickle.load(f)[0]
-                #print('re-using VideoProps')
-                
-                
+            vp=vf.getVideoProperties(path) #video properties  
             self.ffmpeginfo = vp
             self.videoDims = [vp['width'] , vp['height']]
             self.numFrames=vp['nb_frames']
@@ -68,7 +44,11 @@ class ExperimentMeta(object):
         head, tail = os.path.split(path)
         head=os.path.normpath(head)
         
-        if txtPath == []:
+        
+        self.pxPmm=vf.get_pixel_scaling(path,forceCorrectPixelScaling=forceCorrectPixelScaling,forceInput=0)
+#        print 'pxPmm',self.pxPmm        
+        
+        if (txtPath == []) or (txtPath=='none'):
             trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
             self.txtTrajectories=0
             if np.equal(~os.path.isfile(trajectoryPath),-2):
@@ -80,16 +60,15 @@ class ExperimentMeta(object):
                 else:
                     tmp=glob.glob(head+'\\PositionTxt*.txt')
                     if tmp:
-    #                    self.trajectoryPath=tmp[0]
+                        #self.trajectoryPath=tmp[0]
+                        #self.trajectoryPath_b=tmp[1]
                         self.trajectoryPath= tkFileDialog.askopenfilename(initialdir=head)
                         self.txtTrajectories=1
         else:      
             self.trajectoryPath=txtPath
             self.txtTrajectories=1
             
-        AnSizeFilePath = os.path.join(head,'animalSize.txt')
-        if np.equal(~os.path.isfile(AnSizeFilePath),-2):
-            self.AnSizeFilePath = AnSizeFilePath
+        self.AnSizeFilePath = os.path.join(head,'animalSize.txt')
         
         self.dataPath = os.path.join(head,'analysisData.mat')
         self.aspPath=os.path.join(head,tail[:-4]+'_asp.npz')
@@ -98,22 +77,24 @@ class ExperimentMeta(object):
         
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
-    def __init__(self,path,txtPath=[],rng=[],data=[]):
+    def __init__(self,path,txtPath=[],rng=[],data=[],forceCorrectPixelScaling=1,readPathOnly=0,e2=[]):
         self.rng=rng
         self.n_shift_Runs=10
         self.sPair=[]
-        self.expInfo=ExperimentMeta(path,txtPath)
-        try:
-            self.AnSize=np.array(np.loadtxt(self.expInfo.AnSizeFilePath, skiprows=1,dtype=int))
-        except:
-#            print('no animal size file found, using default 500px')
-            self.AnSize=np.array([[1,500],[2,500]])
+        self.expInfo=ExperimentMeta(path,txtPath,forceCorrectPixelScaling=forceCorrectPixelScaling)
+
 
         if data==[]:
             self.rawTra,probTra=self.loadData()
         else:
             self.rawTra=data
             probTra=[1,1]
+            
+        if readPathOnly:
+            return
+            
+        self.AnSize=vf.getAnimalSize(self,e2=e2)/self.expInfo.pxPmm
+#        print self.AnSize
 
         if rng!=[]:
             self.rawTra=self.rawTra[rng,:,:]
@@ -134,8 +115,11 @@ class experiment(object):
         self.minPixel=np.nanmin(self.rawTra,0)
         self.expInfo.trajectoryDiameterPx=np.mean(self.maxPixel-self.minPixel)
         #expInfo.pxPmm=expInfo.trajectoryDiameterPx/expInfo.arenaDiameter_mm
-        self.expInfo.pxPmm=8.6
-        self.expInfo.arenaCenterPx=[256,256]
+        #self.expInfo.pxPmm=8.6
+
+        #self.expInfo.arenaCenterPx=[256,256]
+        self.expInfo.arenaCenterPx=np.array([int(x)/2. for x in self.expInfo.videoDims]).min().repeat(2)
+        print self.expInfo.arenaCenterPx
         #self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
         self.expInfo.numFrames=self.rawTra.shape[0]
         
@@ -170,8 +154,9 @@ class experiment(object):
             with open(self.expInfo.trajectoryPath) as f:
 #                print(self.expInfo.trajectoryPath)
 #                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',')
-                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',',usecols=[0,1,2,3])
-        
+#                mat=np.loadtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',',usecols=[0,1,2,3])
+                mat=np.genfromtxt((x.replace(b'(',b' ').replace(b')',b' ') for x in f),delimiter=',',usecols=[0,1,2,3],skip_footer=1)
+
     
 #        return mat[:,[pairID,pairID+1,-4,-3]].reshape((mat.shape[0],2,2)),[1,1]
         tmp= mat.reshape((mat.shape[0],2,2))
@@ -238,14 +223,17 @@ class experiment(object):
         outer_grid = gridspec.GridSpec(4, 4)        
         plt.figure(figsize=(8, 8))   
         #plt.text(0,0.95,path)
-        plt.figtext(0,.01,self.expInfo.aviPath)
+        plt.figtext(0,.01,self.expInfo.trajectoryPath)
         plt.figtext(0,.03,condition)
         plt.figtext(0,.05,self.idQuality)
         
         plt.subplot(4,4,1,rasterized=True)
         plt.cla()
-        plt.plot(self.pair.animals[0].ts.position().x(),self.pair.animals[0].ts.position().y(),'b.',markersize=1,alpha=0.1)
-        plt.plot(self.pair.animals[1].ts.position().x(),self.pair.animals[1].ts.position().y(),'r.',markersize=1,alpha=0.1)
+        #plt.plot(self.pair.animals[0].ts.position().x(),self.pair.animals[0].ts.position().y(),'b.',markersize=1,alpha=0.1)
+        #plt.plot(self.pair.animals[1].ts.position().x(),self.pair.animals[1].ts.position().y(),'r.',markersize=1,alpha=0.1)
+        
+        plt.plot(self.pair.animals[0].ts.position().x(),self.pair.animals[0].ts.position().y(),'.',markersize=1,alpha=0.1)
+        plt.plot(self.pair.animals[1].ts.position().x(),self.pair.animals[1].ts.position().y(),'.',markersize=1,alpha=0.1)
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         plt.title('raw trajectories')  
@@ -253,17 +241,23 @@ class experiment(object):
         plt.subplot(4,4,3)
         plt.cla()
         PolhistBins=self.pair.animals[0].ts.PolhistBins()
-        plt.step(PolhistBins[:-1], self.pair.animals[0].ts.Pol_n(),'b',lw=2,where='mid')
-        plt.step(PolhistBins[:-1], self.pair.animals[1].ts.Pol_n(),'r',lw=2,where='mid')
-        plt.ylim([0, .1])
+        plt.step(PolhistBins[:-1], self.pair.animals[0].ts.Pol_n(),lw=2,where='mid')
+        plt.step(PolhistBins[:-1], self.pair.animals[1].ts.Pol_n(),lw=2,where='mid')
+        plt.axhline(1,ls=':',color='k')
+
+        plt.xlabel('dist from center [mm]')
+        plt.ylabel('p')
+        plt.title('thigmotaxis') 
+        #plt.ylim([0, .1])
 
         
         
         #plot IAD time series
-        x=np.arange(float(np.shape(self.pair.IAD())[0]))/(self.expInfo.fps*60)
+        IAD=self.pair.IAD()
+        x=np.arange(float(np.shape(IAD)[0]))/(self.expInfo.fps*60)
         plt.subplot(4,1,2,rasterized=True)
         plt.cla()
-        plt.plot(x,self.pair.IAD(),'b.',markersize=1)
+        plt.plot(x,IAD,'k.',markersize=1)
         plt.xlim([0, 90]) 
         plt.xlabel('time [minutes]')
         plt.ylabel('IAD [mm]')
@@ -273,16 +267,16 @@ class experiment(object):
         plt.subplot(4,4,2)
         plt.cla()
         #get rid of nan
-        IAD=self.pair.IAD()
+        #IAD=self.pair.IAD()
         IAD=IAD[~np.isnan(IAD)]
         histBins=np.arange(100)
-        n, bins, patches = plt.hist(IAD, bins=histBins, normed=1, histtype='stepfilled')
-        plt.step(histBins[:-1],self.spIADhist_m.T,'k',lw=1)
+        n, bins, patches = plt.hist(IAD, bins=histBins, normed=1, histtype='stepfilled',color='k')
+        plt.step(histBins[:-1],self.spIADhist_m.T,lw=1,color=[.5,.5,.5])
         #simulate random uniform spacing
         rad=(self.expInfo.trajectoryDiameterPx/self.expInfo.pxPmm)/2
         num=1000
         dotList,dotND = randSpacing.randomDotsOnCircle(rad,num)
-        n, bins, patches = plt.hist(dotND, bins=histBins, normed=1, histtype='step')
+        n, bins, patches = plt.hist(dotND, bins=histBins, normed=1, histtype='step',color='r',linestyle='--')
         plt.xlabel('IAD [mm]')
         plt.ylabel('p')
         plt.title('IAD')
@@ -293,7 +287,8 @@ class experiment(object):
         x=[1,2]
         y=[np.nanmean(IAD),self.spIAD_m([])]
         yerr=[0,self.spIAD_std()]
-        plt.bar(x, y, yerr=yerr, width=0.5,color='k')
+        barlist=plt.bar(x, y, yerr=yerr, width=0.5,color='k')
+        barlist[1].set_color([.5,.5,.5])
         lims = plt.ylim()
         plt.ylim([0, lims[1]]) 
         plt.xlim([0.5, 3]) 
@@ -307,57 +302,78 @@ class experiment(object):
         a2=self.pair.animals[1].ts.neighborMat()
         
         meanPosMat=np.nanmean(np.stack([a1,a2],-1),axis=2)
-        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,100],origin='lower')
+        clim=[meanPosMat.min(),meanPosMat.max()]
+        plt.imshow(meanPosMat,interpolation='none', extent=[-31,31,-31,31],clim=clim,origin='lower')
         plt.title('mean neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         
+        def pltArrow(size,color='m'):
+            w=size/6.0        
+            plt.arrow(
+            0,            # x
+            -size/2.0,            # y
+            0,            # dx
+            size,            # dy
+            width=w,       # optional - defaults to 1.0
+            length_includes_head=True,
+            head_width=w*2,
+            color=color
+            )
+            
         #neighborhood matrix for animal0
         #the vertial orientation was confirmed correct in march 2016
+        cp=sns.color_palette()
         plt.subplot(4,4,13)
         plt.cla()
         PosMat=a1
-        plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
-        plt.title('mean neighbor position')
+        plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=clim,origin='lower')
+        pltArrow(self.AnSize[0,1],cp[0])
+        plt.title('Animal 0 neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         
         plt.subplot(4,4,14)
         plt.cla()
         PosMat=a2
-        plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=[0,200],origin='lower')
-        plt.title('mean neighbor position')
+        plt.imshow(PosMat,interpolation='none', extent=[-31,31,-31,31],clim=clim,origin='lower')
+        pltArrow(self.AnSize[1,1],cp[1])
+        plt.title('Animal 1 neighbor position')
         plt.xlabel('x [mm]')
         plt.ylabel('y [mm]')
         
         #LEADERSHIP
+        
         plt.subplot(4,4,15)
         plt.cla()
         self.LeadershipIndex=np.array([a.ts.FrontnessIndex() for a in self.pair.animals])
         x=[1,2]
-        barlist=plt.bar(x,self.LeadershipIndex, width=0.5,color='b')
-        barlist[1].set_color('r')
+        barlist=plt.bar(x,self.LeadershipIndex, width=0.5,color=cp[0])
+        barlist[1].set_color(cp[1])
         plt.title('Leadership')
         plt.ylabel('index')
-        plt.ylim([-.5, .5])
+        plt.ylim([-1, 1])
         plt.xlim([0.5, 3])
         
         tmp=[an.at_bottom_of_dish_stack() for an in self.pair.animals]
-        if np.sum(tmp)==0 or self.expInfo.txtTrajectories:
-            plt.xticks([1.25,2.25],['same','dish'])
+        #if np.sum(tmp)==0 or self.expInfo.txtTrajectories:
+        plt.xticks([1.25,2.25],['same','dish'])
 
-        else:
-            xtickList=[int(np.where(self.Pair.StackTopAnimal==1)[0])+1.25,int(np.where(self.Pair.StackTopAnimal==0)[0])+1.25]
-            plt.xticks(xtickList,['top','bottom'])            
-            
+       # else:
+       #     xtickList=[int(np.where(self.pair.StackTopAnimal==1)[0])+1.25,int(np.where(self.pair.StackTopAnimal==0)[0])+1.25]
+       #     plt.xticks(xtickList,['top','bottom'])            
+        
+        #BODY SIZE
         plt.subplot(4,4,16)
         plt.cla()
         x=[1,2]
-        barlist=plt.bar(x,self.AnSize[:,1], width=0.5,color='b')
-        barlist[1].set_color('r')
+        barlist=plt.bar(x,self.AnSize[:,1], width=0.5,color=cp[0])
+        barlist[1].set_color(cp[1])
         plt.xlim([0.5, 3])
-        plt.title('Body size')
-        plt.ylabel('area [px]')
+        plt.xticks([1.25,2.25],['an0','an1'])
+        
+        plt.title('Body Size')
+        plt.ylabel('length [mm]')
         
 
         plt.subplot(4,4,10)
@@ -372,10 +388,16 @@ class experiment(object):
         
         plt.subplot(4,4,11)
         plt.cla()
-        plt.bar([1,2],self.pair.avgSpeed(),width=0.5)
+        barlist=plt.bar([1,2],self.pair.avgSpeed(),width=0.5)
+        barlist[1].set_color(cp[1])
         plt.title('avgSpeed')
-   
-        plt.tight_layout()
+        plt.xlim([0.5, 3])
+        plt.xticks([1.25,2.25],['an0','an1'])
+        try:
+            plt.tight_layout()
+        except:
+            pass
+                
         plt.show()
         
         mpl_is_inline = 'inline' in matplotlib.get_backend()

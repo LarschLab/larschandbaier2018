@@ -39,7 +39,7 @@ class gui_circles(object):
     def __init__(self,img_file,out_file,force_input=0):
 
         self.frame = cv2.imread(img_file)
-        self.fig = plt.figure(figsize=(6,9))
+        self.fig = plt.figure(figsize=(15,9))
         self.ax = self.fig.add_subplot(111)
         self.out_file=out_file
         xaxis = self.frame.shape[1]
@@ -81,12 +81,14 @@ class gui_circles(object):
             #block the main script until all points are collected
             self.fig.canvas.start_event_loop(timeout=-1)
             
+            
         #if output file exists, read ROIs from file
         else:
             self.rois=pd.read_csv(out_file,header=0,index_col=0,sep=',')
             self.roiAll=self.rois.ix[:,0:3].values
             self.roiSq=self.rois.ix[:,3:7].values
             self.ArenaDiameter=self.rois.ix[:,7].values
+            plt.close()
 
     #for each pick, check if still need points (want a total of 4 points)        
     def onpick1(self,event):

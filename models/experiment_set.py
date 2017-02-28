@@ -12,7 +12,8 @@ import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import matplotlib
-import datetime
+from datetime import datetime
+from datetime import timedelta
 import numpy as np
 import seaborn as sns
 
@@ -45,7 +46,7 @@ class experiment_set(object):
         if self.csvFile==[]:
             self.csvFile=tkFileDialog.askopenfilename(initialdir=os.path.normpath('d:/data/b'))
         #save pdf summary in same foldera as csv
-        currentTime=datetime.datetime.now()
+        currentTime=datetime.now()
         self.PdfFile=self.csvFile[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
         self.df=pd.read_csv(self.csvFile,sep=',')
         self.experiments=[]
@@ -116,10 +117,12 @@ class experiment_set(object):
             
             mpl_is_inline = 'inline' in matplotlib.get_backend()
             if not mpl_is_inline:
-            
-                self.experiments[index].plotOverview(row['condition'])
-                self.pdf.savefig()  # saves the current figure as pdf page
-                plt.close()
+                try:
+                    self.experiments[index].plotOverview(row['condition'])
+                    self.pdf.savefig()  # saves the current figure as pdf page
+                    plt.close()
+                except:
+                    pass
             
            # print numEpi
             for i in range(numEpi):
@@ -141,9 +144,12 @@ class experiment_set(object):
                 
                 mpl_is_inline = 'inline' in matplotlib.get_backend()
                 if not mpl_is_inline:
-                    self.ee[(numEpi*index)+i].plotOverview(row['condition'])
-                    self.pdf.savefig()  # saves the current figure as pdf page
-                    plt.close()
+                    try:
+                        self.ee[(numEpi*index)+i].plotOverview(row['condition'])
+                        self.pdf.savefig()  # saves the current figure as pdf page
+                        plt.close()
+                    except:
+                        pass
             
             if self.systShift:
                 self.systShiftAll.append(shiftedPairSystematic(self.experiments[index].Pair, self.experiments[index].expInfo, 60))
@@ -159,12 +165,23 @@ class experiment_set(object):
             episodeName=np.array(ee_epiName)
             epiNr=np.array(ee_epiNr)
             
+            head, tail = os.path.split(currAvi)
+            try:
+                datetime_object = datetime.strptime(tail[-18:-4], '%Y%m%d%H%M%S')
+
+                tRun=[datetime_object + timedelta(minutes=x) for x in inDishTime]
+            except:
+                tRun=inDishTime
+            
+            
             df=pd.DataFrame(
             {'animalSet':animalSet,'animalIndex':AnimalIndex,
             'si':si,'episode':episodeName,'epStart':episodeStartFrame,
-            'inDishTime':inDishTime,'epiNr':epiNr})
-            
-            csvFileOut=currTxt[:-4]+'_siSummary_epi'+str(episodeDur)+'.csv'
+            'inDishTime':inDishTime,'epiNr':epiNr,'time':tRun})
+            if currTxt=='none':
+                csvFileOut=head+'_siSummary_epi'+str(episodeDur)+'.csv'
+            else:
+                csvFileOut=currTxt[:-4]+'_siSummary_epi'+str(episodeDur)+'.csv'
             df.to_csv(csvFileOut,encoding='utf-8')
             
             

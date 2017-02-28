@@ -133,9 +133,10 @@ def furthest_points_from_each_other(points):
     return p1, p2, max_distance
 
 
-def to_binary(img_gray, threshold):
+def to_binary(img_gray, threshold,invertMe=True):
     ret, img_binary = cv2.threshold(img_gray, threshold, 255, 0)
-    img_binary = invert(img_binary)
+    if invertMe:
+        img_binary = invert(img_binary)
     img_binary = np.array(img_binary)
 
     return img_binary
@@ -331,14 +332,14 @@ def crop_zero_pad(img_input,xy_point,cropSize=300):
     frame_size=img_input.shape
 
     xmin=np.max([cropSize/2-xy_point.x,0]) 
-    xmax=np.min([(frame_size[0]-xy_point.x+cropSize/2),cropSize])
+    xmax=np.min([(frame_size[1]-xy_point.x+cropSize/2),cropSize])
     ymin=np.max([cropSize/2-xy_point.y,0]) 
-    ymax=np.min([(frame_size[1]-xy_point.y+cropSize/2),cropSize])
+    ymax=np.min([(frame_size[0]-xy_point.y+cropSize/2),cropSize])
     
     xminget=np.max([xy_point.x-cropSize/2,0])
-    xmaxget=np.min([cropSize/2+xy_point.x,frame_size[0]])
+    xmaxget=np.min([cropSize/2+xy_point.x,frame_size[1]])
     yminget=np.max([xy_point.y-cropSize/2,0])
-    ymaxget=np.min([cropSize/2+xy_point.y,frame_size[1]])
+    ymaxget=np.min([cropSize/2+xy_point.y,frame_size[0]])
     
     crop_data = img_input[yminget:ymaxget,xminget:xmaxget]
 
