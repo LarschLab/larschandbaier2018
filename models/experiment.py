@@ -77,7 +77,7 @@ class ExperimentMeta(object):
         
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
-    def __init__(self,path,txtPath=[],rng=[],data=[],forceCorrectPixelScaling=1,readPathOnly=0,e2=[]):
+    def __init__(self,path,txtPath=[],rng=[],data=[],forceCorrectPixelScaling=1,readPathOnly=0,e2=[],anSize=[]):
         self.rng=rng
         self.n_shift_Runs=10
         self.sPair=[]
@@ -93,7 +93,10 @@ class experiment(object):
         if readPathOnly:
             return
             
-        self.AnSize=vf.getAnimalSize(self,e2=e2)/self.expInfo.pxPmm
+        if anSize==[]:
+            self.AnSize=vf.getAnimalSize(self,e2=e2)/self.expInfo.pxPmm
+        else:
+            self.AnSize=anSize
 #        print self.AnSize
 
         if rng!=[]:
