@@ -211,7 +211,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0,bg_file='',saveAll
         videoDims = tuple([int(vp['width']) , int(vp['height'])])
         print videoDims
         #numFrames=int(vp['nb_frames'])
-        numFrames=np.min([50000,int(vp['nb_frames'])])
+        numFrames=np.min([40000,int(vp['nb_frames'])])
         img1=cap.read()
         img1=cap.read()
         img1=cap.read()
