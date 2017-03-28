@@ -66,7 +66,7 @@ class vidGui(object):
                            self.settings.endFrame, 1000,
                            self.set_endFrame)
         cv2.createTrackbar("currFrame", self.window_name,
-                           self.settings.currFrame, 100000,
+                           self.settings.currFrame, 1000000,
                            self.set_currFrame)
     
     def startStop(self,event, x, y, flags, param):
@@ -202,7 +202,7 @@ if rereadTxt:
     e1=xp.experiment(avi_path,tp[0])
     e2=xp.experiment(avi_path,tp[1])    
     
-csvFileOut=tp[0][:-4]+'_siSummary_epi'+str(10.0)+'.csv'
+csvFileOut=tp[0][:-4]+'_siSummary_epi'+str(10)+'.csv'
 df=pd.read_csv(csvFileOut,index_col=0,sep=',')[['epStart','episode']]
     
 a=vidGui(avi_path,e1,e2,df)
