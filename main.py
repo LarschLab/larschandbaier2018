@@ -7,13 +7,13 @@ import models.experiment_set as es
 import os
 import numpy as np
 
-batchmode=0
+batchmode=1
 timeStim=1
 sizePlot=0
 systShift=0
 postureAnalysis=0
 forceCorrectPixelScaling=0
-episodes=5
+episodes=-1
 if batchmode:
     
     expSet=es.experiment_set(csvFile=[],systShift=systShift,timeStim=timeStim,sizePlot=sizePlot, episodes=episodes)

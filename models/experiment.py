@@ -122,7 +122,7 @@ class experiment(object):
 
         #self.expInfo.arenaCenterPx=[256,256]
         self.expInfo.arenaCenterPx=np.array([int(x)/2. for x in self.expInfo.videoDims]).min().repeat(2)
-        print self.expInfo.arenaCenterPx
+        #print self.expInfo.arenaCenterPx
         #self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
         self.expInfo.numFrames=self.rawTra.shape[0]
         

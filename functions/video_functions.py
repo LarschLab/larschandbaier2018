@@ -68,7 +68,7 @@ def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,bg_file=''
     try:
         bg_file=glob.glob(head+'\\dishImage*.jpg')[0]
     except:
-        print 'no background image found for pixel scaling, regenerating...'
+        #print 'no background image found for pixel scaling, regenerating...'
         bg_file=getMedVideo(aviPath)[1]
     
     parentDir = os.path.dirname(head)
@@ -83,7 +83,7 @@ def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,bg_file=''
     elif forceInput or (np.equal(~os.path.isfile(scaleFile),-1) and  forceCorrectPixelScaling):
         scaleData=np.array(np.loadtxt(scaleFile, skiprows=1,dtype=float))
     else:
-        print 'no PixelScaling found, using 4 pxPmm'
+        #print 'no PixelScaling found, using 4 pxPmm'
         return 4
 
     pxPmm=2*scaleData['circle radius']/scaleData['arena size']

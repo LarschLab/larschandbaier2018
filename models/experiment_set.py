@@ -49,18 +49,48 @@ class experiment_set(object):
         currentTime=datetime.now()
         self.PdfFile=self.csvFile[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pdf'
         self.df=pd.read_csv(self.csvFile,sep=',')
+        
+        
         self.experiments=[]
         self.ee=[] #experiments chopped into episodes
         self.systShiftAll=[]
-
 
         
         mpl_is_inline = 'inline' in matplotlib.get_backend()
         if not mpl_is_inline:
             self.pdf = PdfPages(self.PdfFile)
-            
+                 
         for index, row in self.df.iterrows():
             
+            try:                
+                pairListFile=row['pairList']
+                pairList=np.loadtxt(pairListFile,dtype='int')
+            except:
+                pairList=np.diag((-1,-1))+1
+                
+            numPairs=pairList.sum()
+            
+            print 'processing: ', row['aviPath']
+            currAvi=row['aviPath']
+            currTxt=row['txtPath']
+
+            #read data for current experiment or many-dish-set
+            #begin by reading first line to determine format
+            firstLine=pd.read_csv(currTxt,header=None,nrows=1,sep=':')
+            
+            if firstLine.values[0][0][0]=='(':
+                rawData = pd.read_csv(currTxt, sep=',|\)|\(', engine='python',index_col=None,header=None,skipfooter=1,usecols=[2,3,6,7,10],names=np.arange(5))
+                episodeAll=rawData[4]
+                rawData.drop(rawData.columns[[4]], axis=1,inplace=True)
+                
+                #rawData= mat.reshape((mat.shape[0],2,2))
+            else:
+                
+                rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True)
+                episodeAll=rawData[rawData.columns[-1]]
+                
+
+                
             ee_StartFrames=[]
             ee_AnimalIndex=[]
             ee_AnimalSet=[]
@@ -69,9 +99,6 @@ class experiment_set(object):
             ee_si=[]
             ee_epiNr=[]
         
-            print 'processing: ', row['aviPath']
-            currAvi=row['aviPath']
-            currTxt=row['txtPath']
             
             try:                
                 self.episodes=row['episodes']
@@ -83,10 +110,6 @@ class experiment_set(object):
             except:
                 episodeDur=60
                 
-            try:                
-                currAnimal=row['animal']
-            except:
-                currAnimal=index
                 
             try:                
                 currAnimalSet=row['set']
@@ -99,57 +122,75 @@ class experiment_set(object):
                 currInDishTime=0
                 
                 
-            self.experiments.append(experiment(currAvi,currTxt))
-            
-            numFrames=self.experiments[-1].expInfo.numFrames
-            fps=self.experiments[-1].expInfo.fps
-            if self.episodes==-1:
-                numEpi=int(np.floor(((numFrames/fps)/60) /episodeDur))
-                print 'new episode number',numEpi
-            else:
-                numEpi=int(self.episodes)
+            #cycle through all pairs in this data
+            for p in range(numPairs):
+                print p
+                currAnimal=p
+                currPartner=np.where(pairList[:,p])[0][0]
                 
-            try:
-                episodeAll = pd.read_csv(currTxt, names=['episode'], sep=',|\)', engine='python',usecols=[7],index_col=None,header=None)
-                print('read episode names')
-            except:
-                episodeAll=[]
-            
-            mpl_is_inline = 'inline' in matplotlib.get_backend()
-            if not mpl_is_inline:
-                try:
-                    self.experiments[index].plotOverview(row['condition'])
-                    self.pdf.savefig()  # saves the current figure as pdf page
-                    plt.close()
-                except:
-                    pass
-            
-           # print numEpi
-            for i in range(numEpi):
-                ee_epiNr.append(i)
-                episodeFrames=self.experiments[-1].expInfo.fps*episodeDur*60
-                rng=np.arange(i*episodeFrames,(i+1)*episodeFrames).astype('int')
-                ee_StartFrames.append(rng[0])
-                ee_AnimalIndex.append(currAnimal)
-                ee_AnimalSet.append(currAnimalSet)
-                ee_inDishTime.append((rng[0]/(30*60))+currInDishTime)
-                try:
-                    ee_epiName.append(episodeAll.loc[rng[0]].values[0])
-                except:
-                    ee_epiName.append('n')
-                #print('episode: ', i, ' , ', rng[0],rng[-1])
-                self.ee.append(experiment(currAvi,currTxt,rng=rng,data=self.experiments[-1].rawTra))
+                currCols=[p*3,p*3+1,currPartner*3,currPartner*3+1]
+                currDf=rawData[rawData.columns[currCols]]
+                #p1=df[[6,7,9,10]].values[:30*60*120].reshape(-1,2,2)
+                data=currDf.values.reshape(-1,2,2)
                 
-                ee_si.append(self.ee[-1].ShoalIndex())
+                self.experiments.append(experiment(currAvi,currTxt,data=data,forceCorrectPixelScaling=False,anSize=np.array([[5.,5.],[5,5]])))
                 
-                mpl_is_inline = 'inline' in matplotlib.get_backend()
-                if not mpl_is_inline:
+                numFrames=self.experiments[-1].expInfo.numFrames
+                fps=self.experiments[-1].expInfo.fps
+                
+                
+                #vp=vf.getVideoProperties(currAvi) #video properties  
+                #numFrames=vp['nb_frames']
+                #fps=vp['fps']
+                
+                
+                if self.episodes==-1:
+                    numEpi=int(np.floor(((numFrames/fps)/60) /episodeDur))
+                    print 'new episode number',numEpi
+                else:
+                    numEpi=int(self.episodes)
+                    
+                #try:
+                #    episodeAll = pd.read_csv(currTxt, names=['episode'], sep=',|\)', engine='python',usecols=[7],index_col=None,header=None)
+                #    print('read episode names')
+                #except:
+                #    episodeAll=[]
+                
+    #            mpl_is_inline = 'inline' in matplotlib.get_backend()
+    #            if not mpl_is_inline:
+    #                try:
+    #                    self.experiments[index].plotOverview(row['condition'])
+    #                    self.pdf.savefig()  # saves the current figure as pdf page
+    #                    plt.close()
+    #                except:
+    #                    pass
+                
+               # print numEpi
+                for i in range(numEpi):
+                    ee_epiNr.append(i)
+                    episodeFrames=self.experiments[-1].expInfo.fps*episodeDur*60
+                    rng=np.arange(i*episodeFrames,(i+1)*episodeFrames).astype('int')
+                    ee_StartFrames.append(rng[0])
+                    ee_AnimalIndex.append(currAnimal)
+                    ee_AnimalSet.append(currAnimalSet)
+                    ee_inDishTime.append((rng[0]/(30*60))+currInDishTime)
                     try:
-                        self.ee[(numEpi*index)+i].plotOverview(row['condition'])
-                        self.pdf.savefig()  # saves the current figure as pdf page
-                        plt.close()
+                        ee_epiName.append(episodeAll.loc[rng[0]])
                     except:
-                        pass
+                        ee_epiName.append('n')
+                    #print('episode: ', i, ' , ', rng[0],rng[-1])
+                    self.ee.append(experiment(currAvi,currTxt,rng=rng,data=self.experiments[-1].rawTra,forceCorrectPixelScaling=False,anSize=np.array([[5.,5.],[5,5]])))
+                    
+                    ee_si.append(self.ee[-1].ShoalIndex())
+                    
+                    mpl_is_inline = 'inline' in matplotlib.get_backend()
+                    if not mpl_is_inline:
+                        try:
+                            self.ee[(numEpi*index)+i].plotOverview(row['condition'])
+                            self.pdf.savefig()  # saves the current figure as pdf page
+                            plt.close()
+                        except:
+                            pass
             
             if self.systShift:
                 self.systShiftAll.append(shiftedPairSystematic(self.experiments[index].Pair, self.experiments[index].expInfo, 60))
