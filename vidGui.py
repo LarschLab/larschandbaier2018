@@ -13,15 +13,10 @@ import models.experiment as xp
 import glob
 import numpy as np
 import pandas as pd
-import datetime
+#import datetime
 
 class settings(object):
-    """
-    A stereo pair of calibrated cameras.
- 
-    Should be initialized with a context manager to ensure that the camera
-    connections are closed properly.
-    """
+
     def __init__(self, startFrame=0,
                  endFrame=10):
         self.startFrame=startFrame
@@ -32,32 +27,33 @@ class settings(object):
         self.haveVid=False
 
 class vidGui(object):
-    """
-    A class for tuning Stereo BM settings.
- 
-    Display a normalized disparity picture from two pictures captured with a
-    ``CalibratedPair`` and allow the user to manually tune the settings for the
-    stereo block matcher.
-    """
-    #: Window to show results in
+
     window_name = "vidGUI"
-    def __init__(self, path,e1,e2,df):
-        """Initialize tuner with a ``CalibratedPair`` and tune given pair."""
-        #: Calibrated stereo pair to find Stereo BM settings for
+    def __init__(self, path,anMat,sMat=[],df_roi=[]):
+
         self.settings=settings()
-        self.df=df
-        self.skipNan=e1.skipNanInd
+        #self.df=df
+        #self.skipNan=e1.skipNanInd
         self.path = path
         self.cap = cv2.VideoCapture(path)
         self.im=[]
-        self.t1=e1.rawTra[:,0,:].copy()
-        self.t2=e2.rawTra[:,0,:].copy()
-        self.t1b=e1.rawTra[:,1,:].copy()
-        self.t2b=e2.rawTra[:,1,:].copy()
-        self.t1[:,0]=self.t1[:,0]+512        
-        self.t1b[:,0]=self.t1b[:,0]+512  
-        cv2.namedWindow(self.window_name)
-        #cv2.namedWindow(self.window_name,cv2.WINDOW_NORMAL)
+        self.df_roi=df_roi
+        self.anMat=anMat
+        self.sMat=sMat
+        #self.t1=e1.rawTra[:,0,:].copy()
+        #self.t2=e2.rawTra[:,0,:].copy()
+        #self.t1b=e1.rawTra[:,1,:].copy()
+        #self.t2b=e2.rawTra[:,1,:].copy()
+        #self.t1[:,0]=self.t1[:,0]+512        
+        #self.t1b[:,0]=self.t1b[:,0]+512  
+        cv2.namedWindow(self.window_name,cv2.WINDOW_AUTOSIZE)
+        self.desiredWidth=1024
+        self.desiredheight=1024
+        
+        #cv2.createTrackbar("Min", "Threshold", &threshMin, 255, on_trackbar);
+
+        #cv2.namedWindow(self.window_name,cv2.WINDOW_AUTOSIZE)
+        length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cv2.setMouseCallback(self.window_name, self.startStop)
         cv2.createTrackbar("startFrame", self.window_name,
                            self.settings.startFrame, 1000,
@@ -66,9 +62,9 @@ class vidGui(object):
                            self.settings.endFrame, 1000,
                            self.set_endFrame)
         cv2.createTrackbar("currFrame", self.window_name,
-                           self.settings.currFrame, 1000000,
+                           self.settings.currFrame, length,
                            self.set_currFrame)
-    
+        #cv2.resizeWindow(self.window_name, self.desiredWidth,self.desiredheight)               
     def startStop(self,event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             self.settings.run=True
@@ -77,7 +73,7 @@ class vidGui(object):
                 f+=1
                 
             
-                key = cv2.waitKey(5) & 0xFF
+                key = cv2.waitKey(1) & 0xFF
                  
                 if key == ord("v"):
                   
@@ -87,7 +83,8 @@ class vidGui(object):
                         if not self.settings.haveVid:
                                              
                             p, tail = os.path.split(self.path)
-                            fn=p+"\\episodeVid_frame_%07d_%s.avi"%(f,self.currEpi)
+                            #fn=p+"\\episodeVid_frame_%07d_%s.avi"%(f,self.currEpi)
+                            fn=p+"\\episodeVid_frame_%07d.avi"%(f)
                             fn=os.path.normpath(fn)
                             fourcc=cv2.VideoWriter_fourcc('X', 'V', 'I', 'D')
                             fps=30
@@ -120,52 +117,57 @@ class vidGui(object):
     def updateFrame(self):
         
          
-        tail=500
+        tail=50
         tailStep=5.0
-        pathDotSize=1
+        #dotScale=1
+        pathDotSize=4
+        stimDotSize=4
         
         self.cap.set(cv2.CAP_PROP_POS_FRAMES,self.settings.currFrame)
         self.im=255-self.cap.read()[1]
         fs= self.settings.currFrame-np.mod(self.settings.currFrame,5)
-        self.currEpi=self.df['episode'].ix[np.where(self.df['epStart']>fs)[0][0]-1][1:]
+        #self.currEpi=self.df['episode'].ix[np.where(self.df['epStart']>fs)[0][0]-1][1:]
         r=np.arange(fs-tail,fs,tailStep).astype('int')
+        s=sMat[0,self.settings.currFrame,0]
         
+        if ~np.isnan(s):
+            stimDotSize=int(s)
         #DRAW path history
         for f in r:
             opacity=((fs-f)/float(tail))
             
-            center=tuple(self.t1b[f,:].astype('int'))
-            cv2.circle(self.im, center, pathDotSize, (opacity*255,opacity*255,255), -1) 
-            center=tuple(self.t1[f,:].astype('int'))
-            cv2.circle(self.im, center, pathDotSize, (opacity*255,opacity*255,opacity*255), -1) 
+            for an in range(4):
+                center=tuple(self.anMat[an,f,[0,1]].astype('int'))
+                cv2.circle(self.im, center,pathDotSize , (opacity*255,opacity*255,255), -1) 
+                center=tuple(self.anMat[an,f,[2,3]].astype('int'))
+                cv2.circle(self.im, center, stimDotSize, (opacity*255,opacity*255,opacity*255), -1) 
              
-            center=tuple(self.t2[f,:].astype('int'))
-            cv2.circle(self.im, center, pathDotSize, (opacity*255,opacity*255,opacity*255), -1) 
-            center=tuple(self.t2b[f,:].astype('int'))
-            cv2.circle(self.im, center, pathDotSize, (255,opacity*255,opacity*255), -1)
-            
-            
-        #DRAW Current animal positions    
-        center=tuple(self.t1[f,:].astype('int'))
-        cv2.circle(self.im, center, 4, (0,0,0), -1)
-        if 'skype' in self.currEpi:
-            cv2.circle(self.im, center, 6, (255,opacity*255,opacity*255), 1)
-        center=tuple(self.t2[f,:].astype('int'))
-        cv2.circle(self.im, center, 4, (0,0,0), -1)
-        if 'skype' in self.currEpi:
-            cv2.circle(self.im, center, 6, (opacity*255,opacity*255,255), 1)
+
         
+        #DRAW Current frame animal positions 
+        for an in range(4):
+            center=tuple(self.anMat[an,f,[0,1]].astype('int'))
+            cv2.circle(self.im, center, 10, (0,0,0), -1)
+            
+           
+
+        #if 'skype' in self.currEpi:
+        #    cv2.circle(self.im, center, 6, (255,opacity*255,opacity*255), 1)
+        
+
         
         #DRAW DISH BOUNDARIES
-        center=tuple((256,256))
-        cv2.circle(self.im, center, 240, (0,0,0), 2)
-        center=tuple((256+512,256))
-        cv2.circle(self.im, center, 240, (0,0,0), 2)
-        center=tuple((256+2*512,256))
-        cv2.circle(self.im, center, 240, (0,0,0), 2)
+        for index, row in self.df_roi.iterrows():
+            center=tuple((row.x_center,row.y_center))
+            rad=row.radius
+            cv2.circle(self.im, center, rad, (0,0,0), 2)
+        #center=tuple((256+512,256))
+        #cv2.circle(self.im, center, 240, (0,0,0), 2)
+        #center=tuple((256+2*512,256))
+        #cv2.circle(self.im, center, 240, (0,0,0), 2)
         
         font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(self.im,self.currEpi,(450,20), font, 0.6,(0,0,0),2)  
+        #cv2.putText(self.im,self.currEpi,(450,20), font, 0.6,(0,0,0),2)  
         
         frInfo='Frame #: '+str(self.settings.currFrame)
         cv2.putText(self.im,frInfo,(450,40), font, 0.4,(0,0,0),2)
@@ -184,8 +186,17 @@ class vidGui(object):
         cv2.putText(self.im,"Arena 1",(220,60), font, 0.6,(0,0,0),2)
         cv2.putText(self.im,"Arena 2",(220+512,60), font, 0.6,(0,0,0),2)
         cv2.putText(self.im,"overlay 1 & 2",(200+1024,60), font, 0.6,(0,0,0),2)
-        
-        cv2.imshow(self.window_name, self.im)
+        #cv2.resizeWindow(self.window_name, self.desiredWidth,self.desiredheight)
+        #newWidth=1024
+        #r = newWidth / self.im.shape[1]
+        #dim = (newWidth, int(self.im.shape[0] * r))
+ 
+        # perform the actual resizing of the image and show it
+        dim=(1024,1024)
+        resized = cv2.resize(self.im, dim)
+         
+        cv2.imshow(self.window_name, resized)
+                
         if self.settings.vidRec:
            
             wr=self.im.astype('uint8')
@@ -193,16 +204,53 @@ class vidGui(object):
             self.vOut.write(wr)
 
         
-p='D:\\data\\b\\2017\\20170131_VR_skypeVsTrefoil\\01_skypeVsTrefoil_blackDisk002\\'
-avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath(p))    
-p, tail = os.path.split(avi_path)
-tp=glob.glob(p+'\\Position*.txt')
+#p='D:\\data\\b\\2017\\20170131_VR_skypeVsTrefoil\\01_skypeVsTrefoil_blackDisk002\\'
+
+    
+
 rereadTxt=0
+
+
 if rereadTxt:
-    e1=xp.experiment(avi_path,tp[0])
-    e2=xp.experiment(avi_path,tp[1])    
+    lines=24
+    empty=np.repeat('NaN',lines)
+    empty=' '.join(empty)
+    p='D:\\data\\b\\2017\\20170407_clTest_4dish\\2\\'
+    avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath(p))    
+    p, tail = os.path.split(avi_path)
+    txt_path=glob.glob(p+'\\Position*.txt')[0]
+    roi_path=glob.glob(p+'\\ROI*.csv')[0]
     
-csvFileOut=tp[0][:-4]+'_siSummary_epi'+str(10)+'.csv'
-df=pd.read_csv(csvFileOut,index_col=0,sep=',')[['epStart','episode']]
+    df_roi=pd.read_csv(roi_path,
+        names=['x_topLeft',
+        'y_topLeft',
+        'widthHeight',
+        'x_center',
+        'y_center',
+        'radius'],
+        delim_whitespace=True)
     
-a=vidGui(avi_path,e1,e2,df)
+    with open(txt_path) as f:
+        mat=np.loadtxt((x if len(x)>6 else empty for x in f ),delimiter=' ')
+    epiLen=int(np.median(np.diff(np.where(mat[:-1,-1]!=mat[1:,-1]))))/10
+    
+    anMat=[]
+    sMat=[]
+    for an in range(4):
+        tmp=np.array(mat[:,an*6+np.array([0,1,3,4])])
+        tmp[:,[0,2]]=tmp[:,[0,2]]+df_roi.x_topLeft[an]
+        tmp[:,[1,3]]=tmp[:,[1,3]]+df_roi.y_topLeft[an]
+        anMat.append(tmp)
+        tmp=np.array(mat[:,an*6+np.array([5])])
+        sMat.append(tmp)
+        #df['episode']=np.repeat(np.arange(mat.shape[0]/float(epiLen)),epiLen)
+        #dfAll.append(df.copy())
+    anMat=np.array(anMat)
+    sMat=np.array(sMat)
+    #e1=xp.experiment(avi_path,tp[0])
+    #e2=xp.experiment(avi_path,tp[1])    
+    
+#csvFileOut=tp[0][:-4]+'_siSummary_epi'+str(10)+'.csv'
+#df=pd.read_csv(csvFileOut,index_col=0,sep=',')[['epStart','episode']]
+    
+a=vidGui(avi_path,anMat,sMat,df_roi)
