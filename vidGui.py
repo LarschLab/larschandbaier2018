@@ -53,7 +53,7 @@ class vidGui(object):
         #cv2.createTrackbar("Min", "Threshold", &threshMin, 255, on_trackbar);
 
         #cv2.namedWindow(self.window_name,cv2.WINDOW_AUTOSIZE)
-        length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        length = 30000#int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cv2.setMouseCallback(self.window_name, self.startStop)
         cv2.createTrackbar("startFrame", self.window_name,
                            self.settings.startFrame, 1000,
@@ -117,38 +117,45 @@ class vidGui(object):
     def updateFrame(self):
         
          
-        tail=50
-        tailStep=5.0
+        tail=1
+        tailStep=1.0
         #dotScale=1
         pathDotSize=4
         stimDotSize=4
-        
+        stimDotSize2=4
         self.cap.set(cv2.CAP_PROP_POS_FRAMES,self.settings.currFrame)
         self.im=255-self.cap.read()[1]
-        fs= self.settings.currFrame-np.mod(self.settings.currFrame,5)
+        fs= self.settings.currFrame-np.mod(self.settings.currFrame,tailStep)
         #self.currEpi=self.df['episode'].ix[np.where(self.df['epStart']>fs)[0][0]-1][1:]
         r=np.arange(fs-tail,fs,tailStep).astype('int')
         s=sMat[0,self.settings.currFrame,0]
         
         if ~np.isnan(s):
             stimDotSize=int(s)
+            stimDotSize2=int(sMat[0,self.settings.currFrame,1])
         #DRAW path history
-        for f in r:
+        #for f in r:
+        for f in [self.settings.currFrame]:
             opacity=((fs-f)/float(tail))
             
             for an in range(4):
                 center=tuple(self.anMat[an,f,[0,1]].astype('int'))
                 cv2.circle(self.im, center,pathDotSize , (opacity*255,opacity*255,255), -1) 
-                center=tuple(self.anMat[an,f,[2,3]].astype('int'))
-                cv2.circle(self.im, center, stimDotSize, (opacity*255,opacity*255,opacity*255), -1) 
-             
+                #center=tuple(self.anMat[an,f,[2,3]].astype('int'))
+                #cv2.circle(self.im, center, stimDotSize, (opacity*255,opacity*255,opacity*255), -1) 
+                #center=tuple(self.anMat[an,f,[4,5]].astype('int'))
+                #cv2.circle(self.im, center, stimDotSize2, (opacity*255,opacity*255,opacity*255), -1)              
 
         
         #DRAW Current frame animal positions 
         for an in range(4):
+            opacity=0
             center=tuple(self.anMat[an,f,[0,1]].astype('int'))
-            cv2.circle(self.im, center, 10, (0,0,0), -1)
-            
+            cv2.circle(self.im, center, 6, (0,1,0), -1)
+            center=tuple(self.anMat[an,f,[2,3]].astype('int'))
+            cv2.circle(self.im, center, stimDotSize, (opacity*255,opacity*255,opacity*255), -1) 
+            center=tuple(self.anMat[an,f,[4,5]].astype('int'))
+            cv2.circle(self.im, center, stimDotSize2, (opacity*255,opacity*255,opacity*255), -1)  
            
 
         #if 'skype' in self.currEpi:
@@ -183,9 +190,10 @@ class vidGui(object):
 
         cv2.line(self.im, tuple((1024,0)), tuple((1024,512)), (0,0,0))        
         
-        cv2.putText(self.im,"Arena 1",(220,60), font, 0.6,(0,0,0),2)
-        cv2.putText(self.im,"Arena 2",(220+512,60), font, 0.6,(0,0,0),2)
-        cv2.putText(self.im,"overlay 1 & 2",(200+1024,60), font, 0.6,(0,0,0),2)
+        #cv2.putText(self.im,"Arena 1",(220,60), font, 0.6,(0,0,0),2)
+        #cv2.putText(self.im,"Arena 2",(220+512,60), font, 0.6,(0,0,0),2)
+        cv2.putText(self.im,str(stimDotSize),(200+1024,60), font, 0.6,(0,0,0),2)
+        cv2.putText(self.im,str(stimDotSize2),(200+1024,80), font, 0.6,(0,0,0),2)
         #cv2.resizeWindow(self.window_name, self.desiredWidth,self.desiredheight)
         #newWidth=1024
         #r = newWidth / self.im.shape[1]
@@ -206,16 +214,16 @@ class vidGui(object):
         
 #p='D:\\data\\b\\2017\\20170131_VR_skypeVsTrefoil\\01_skypeVsTrefoil_blackDisk002\\'
 
-    
+   #D:\\data\\b\\2017\\20170420_miguel_competitionTest\\1\\PositionTxt_allROI2017-04-20T09_22_51.txt 
 
 rereadTxt=0
 
 
 if rereadTxt:
-    lines=24
+    lines=32
     empty=np.repeat('NaN',lines)
     empty=' '.join(empty)
-    p='D:\\data\\b\\2017\\20170407_clTest_4dish\\2\\'
+    p='D:\\data\\b\\2017\\20170420_miguel_competitionTest\\1\\'
     avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath(p))    
     p, tail = os.path.split(avi_path)
     txt_path=glob.glob(p+'\\Position*.txt')[0]
@@ -232,16 +240,22 @@ if rereadTxt:
     
     with open(txt_path) as f:
         mat=np.loadtxt((x if len(x)>6 else empty for x in f ),delimiter=' ')
-    epiLen=int(np.median(np.diff(np.where(mat[:-1,-1]!=mat[1:,-1]))))/10
+    #epiLen=int(np.median(np.diff(np.where(mat[:-1,-1]!=mat[1:,-1]))))
+    epiLen=int(np.median(np.diff(np.where((mat[:-1,-1]!=mat[1:,-1]) * ((mat[:-1,-1])==0)))))
+    
+    #ind=np.arange(149+epiLen,mat.shape[0],epiLen)
+    #fixCol=[3,4,5,6,10,11,12,13,17,18,19,20,24,25,26,27,28,29]
+    #for fc in fixCol:
+    #    mat[ind,fc]=mat[ind+1,fc]
     
     anMat=[]
     sMat=[]
     for an in range(4):
-        tmp=np.array(mat[:,an*6+np.array([0,1,3,4])])
-        tmp[:,[0,2]]=tmp[:,[0,2]]+df_roi.x_topLeft[an]
-        tmp[:,[1,3]]=tmp[:,[1,3]]+df_roi.y_topLeft[an]
+        tmp=np.array(mat[:,an*7+np.array([0,1,3,4,5,6])])
+        tmp[:,[0,2,4]]=tmp[:,[0,2,4]]+df_roi.x_topLeft[an]
+        tmp[:,[1,3,5]]=tmp[:,[1,3,5]]+df_roi.y_topLeft[an]
         anMat.append(tmp)
-        tmp=np.array(mat[:,an*6+np.array([5])])
+        tmp=np.array(mat[:,[28,29]])
         sMat.append(tmp)
         #df['episode']=np.repeat(np.arange(mat.shape[0]/float(epiLen)),epiLen)
         #dfAll.append(df.copy())
