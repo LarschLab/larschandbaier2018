@@ -174,6 +174,14 @@ class experiment(object):
         else:
             self.pair=pair
             return self.pair
+
+    def spIAD_meanTrace(self,rng=[]):
+        
+        if rng==[]:
+            x=np.nanmean([np.nanmean(x.IAD()) for x in self.sPair])
+        else:
+            x=np.nanmean([np.nanmean(x.IAD()[rng]) for x in self.sPair])
+        return x
         
     def spIAD_m(self,rng=[]):
         
