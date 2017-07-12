@@ -120,9 +120,10 @@ class vidGui(object):
         tail=1
         tailStep=1.0
         #dotScale=1
-        pathDotSize=4
+        pathDotSize=0#4 
         stimDotSize=4
         stimDotSize2=4
+        animalDotSize=0#6 #not showing animal path for now
         self.cap.set(cv2.CAP_PROP_POS_FRAMES,self.settings.currFrame)
         self.im=255-self.cap.read()[1]
         fs= self.settings.currFrame-np.mod(self.settings.currFrame,tailStep)
@@ -138,7 +139,7 @@ class vidGui(object):
         for f in [self.settings.currFrame]:
             opacity=((fs-f)/float(tail))
             
-            for an in range(4):
+            for an in range(9):
                 center=tuple(self.anMat[an,f,[0,1]].astype('int'))
                 cv2.circle(self.im, center,pathDotSize , (opacity*255,opacity*255,255), -1) 
                 #center=tuple(self.anMat[an,f,[2,3]].astype('int'))
@@ -148,10 +149,10 @@ class vidGui(object):
 
         
         #DRAW Current frame animal positions 
-        for an in range(4):
+        for an in range(9):
             opacity=0
             center=tuple(self.anMat[an,f,[0,1]].astype('int'))
-            cv2.circle(self.im, center, 6, (0,1,0), -1)
+            cv2.circle(self.im, center, animalDotSize, (0,1,0), -1)
             center=tuple(self.anMat[an,f,[2,3]].astype('int'))
             cv2.circle(self.im, center, stimDotSize, (opacity*255,opacity*255,opacity*255), -1) 
             center=tuple(self.anMat[an,f,[4,5]].astype('int'))
@@ -188,7 +189,7 @@ class vidGui(object):
         timeInfo2='(hh:mm:ss:ms)'
         cv2.putText(self.im,timeInfo2,(450,80), font, 0.4,(0,0,0),2)
 
-        cv2.line(self.im, tuple((1024,0)), tuple((1024,512)), (0,0,0))        
+        #cv2.line(self.im, tuple((1024,0)), tuple((1024,512)), (0,0,0))        
         
         #cv2.putText(self.im,"Arena 1",(220,60), font, 0.6,(0,0,0),2)
         #cv2.putText(self.im,"Arena 2",(220+512,60), font, 0.6,(0,0,0),2)
@@ -220,10 +221,10 @@ rereadTxt=0
 
 
 if rereadTxt:
-    lines=32
+    lines=67
     empty=np.repeat('NaN',lines)
     empty=' '.join(empty)
-    p='D:\\data\\b\\2017\\20170420_miguel_competitionTest\\1\\'
+    p='D:\\data\\b\\2017\\20170503_miguel_competition\\1\\'
     avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath(p))    
     p, tail = os.path.split(avi_path)
     txt_path=glob.glob(p+'\\Position*.txt')[0]
@@ -242,7 +243,7 @@ if rereadTxt:
         mat=np.loadtxt((x if len(x)>6 else empty for x in f ),delimiter=' ')
     #epiLen=int(np.median(np.diff(np.where(mat[:-1,-1]!=mat[1:,-1]))))
     epiLen=int(np.median(np.diff(np.where((mat[:-1,-1]!=mat[1:,-1]) * ((mat[:-1,-1])==0)))))
-    
+    print epiLen
     #ind=np.arange(149+epiLen,mat.shape[0],epiLen)
     #fixCol=[3,4,5,6,10,11,12,13,17,18,19,20,24,25,26,27,28,29]
     #for fc in fixCol:
@@ -250,12 +251,12 @@ if rereadTxt:
     
     anMat=[]
     sMat=[]
-    for an in range(4):
+    for an in range(9):
         tmp=np.array(mat[:,an*7+np.array([0,1,3,4,5,6])])
         tmp[:,[0,2,4]]=tmp[:,[0,2,4]]+df_roi.x_topLeft[an]
         tmp[:,[1,3,5]]=tmp[:,[1,3,5]]+df_roi.y_topLeft[an]
         anMat.append(tmp)
-        tmp=np.array(mat[:,[28,29]])
+        tmp=np.array(mat[:,[-4,-3]])
         sMat.append(tmp)
         #df['episode']=np.repeat(np.arange(mat.shape[0]/float(epiLen)),epiLen)
         #dfAll.append(df.copy())
