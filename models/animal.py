@@ -59,7 +59,7 @@ class Animal(object):
         shift=self.pair.shift
         minShift=self.pair.experiment.expInfo.minShift
         numFrames=self.pair.experiment.expInfo.numFrames
-        if shift and self.ID==1:
+        if shift and self.ID==0: #shift focal animal % changed 22.6.2017!
             #print numFrames, minShift
             return int(random.uniform(minShift,numFrames-minShift))
 
