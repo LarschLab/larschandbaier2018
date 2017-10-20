@@ -20,11 +20,17 @@ import seaborn as sns
 
 class ExperimentMeta(object):
     #This class collects paths, arena and video parameters
-    def __init__(self,path,txtPath,arenaDiameter_mm=100,forceCorrectPixelScaling=0):
+    def __init__(self,
+                 path,
+                 txtPath,
+                 arenaDiameter_mm=100,
+                 forceCorrectPixelScaling=False,
+                 pxPmm=[]
+                 ):
         
 
         self.arenaDiameter_mm = arenaDiameter_mm
-        self.arenaCenterPx = [0,0] #assign later from class 'Pair'
+        self.arenaCenterPx = [] #assign later from class 'Pair'
 
         #If a video file name is passed, collect video parameters
         if path.endswith('.avi') or path.endswith('.mp4'):
@@ -39,14 +45,16 @@ class ExperimentMeta(object):
         else:
             self.fps=30
         
-        self.minShift=3*60*self.fps
+        self.minShift=1*60*self.fps
         #concatenate dependent file paths (trajectories, pre-analysis)
         head, tail = os.path.split(path)
         head=os.path.normpath(head)
         
-        
-        self.pxPmm=vf.get_pixel_scaling(path,forceCorrectPixelScaling=forceCorrectPixelScaling,forceInput=0)
-#        print 'pxPmm',self.pxPmm        
+        if pxPmm==[]:
+            self.pxPmm=vf.get_pixel_scaling(path,forceCorrectPixelScaling=forceCorrectPixelScaling,forceInput=0)
+#           print 'pxPmm',self.pxPmm       
+        else:
+            self.pxPmm=pxPmm
         
         if (txtPath == []) or (txtPath=='none'):
             trajectoryPath = os.path.join(head,'trajectories_nogaps.mat')
@@ -77,18 +85,35 @@ class ExperimentMeta(object):
         
 class experiment(object):
     #Class to collect, store and plot data belonging to one experiment
-    def __init__(self,path,txtPath=[],rng=[],data=[],forceCorrectPixelScaling=1,readPathOnly=0,e2=[],anSize=[]):
+    def __init__(self,path,
+                 txtPath=[],
+                rng=[],
+                data=[],
+                forceCorrectPixelScaling=0,
+                readPathOnly=0,
+                e2=[],
+                anSize=[],
+                pxPmm=[],
+                arenaCenterPx=[],
+                episodeMarker=[]):
+    
         self.rng=rng
         self.n_shift_Runs=10
         self.sPair=[]
-        self.expInfo=ExperimentMeta(path,txtPath,forceCorrectPixelScaling=forceCorrectPixelScaling)
-
+        self.expInfo=ExperimentMeta(path,txtPath,forceCorrectPixelScaling=forceCorrectPixelScaling,pxPmm=pxPmm)
+        self.episodeMarker=episodeMarker
 
         if data==[]:
             self.rawTra,probTra=self.loadData()
         else:
             self.rawTra=data
             probTra=[1,1]
+
+        #check if orientation was available as third column from csv file.
+        #if not, fill with zeros
+        if data.shape[2]==2:
+            ori=np.zeros((list(data.shape[:2])+[1]))
+            np.concatenate((data,ori),axis=2)
             
         if readPathOnly:
             return
@@ -121,7 +146,10 @@ class experiment(object):
         #self.expInfo.pxPmm=8.6
 
         #self.expInfo.arenaCenterPx=[256,256]
-        self.expInfo.arenaCenterPx=np.array([int(x)/2. for x in self.expInfo.videoDims]).min().repeat(2)
+        if arenaCenterPx==[]:
+            self.expInfo.arenaCenterPx=np.array([int(x)/2. for x in self.expInfo.videoDims]).min().repeat(2)
+        else:
+            self.expInfo.arenaCenterPx=arenaCenterPx
         #print self.expInfo.arenaCenterPx
         #self.expInfo.arenaCenterPx=np.mean(self.maxPixel-(self.expInfo.trajectoryDiameterPx/2),axis=0)
         self.expInfo.numFrames=self.rawTra.shape[0]
@@ -148,6 +176,10 @@ class experiment(object):
             #self.totalPairTravel=sum(self.Pair.totalTravel)
             self.avgSpeed=self.pair.avgSpeed
             self.idQuality=np.mean(probTra[probTra>=0])*100
+            self.thigmoIndex=np.array([np.nanmean(an.ts.positionPol().y()) for an in self.pair.animals])
+
+            self.medBoutDur=np.array([np.nanmedian(np.diff(an.ts.boutStart())) for an in self.pair.animals])/float(self.expInfo.fps)
+            self.LeadershipIndex=np.array([a.ts.FrontnessIndex() for a in self.pair.animals])
 
     def loadData(self,pairID=0):
         if self.expInfo.txtTrajectories==0:
@@ -178,9 +210,9 @@ class experiment(object):
     def spIAD_meanTrace(self,rng=[]):
         
         if rng==[]:
-            x=np.nanmean([np.nanmean(x.IAD()) for x in self.sPair])
+            x=np.nanmean(np.array([x.IAD() for x in self.sPair]),axis=0)
         else:
-            x=np.nanmean([np.nanmean(x.IAD()[rng]) for x in self.sPair])
+            x=np.nanmean(np.array([x.IAD()[rng] for x in self.sPair]),axis=0)
         return x
         
     def spIAD_m(self,rng=[]):
@@ -357,7 +389,7 @@ class experiment(object):
         
         plt.subplot(4,4,15)
         plt.cla()
-        self.LeadershipIndex=np.array([a.ts.FrontnessIndex() for a in self.pair.animals])
+        
         x=[1,2]
         barlist=plt.bar(x,self.LeadershipIndex, width=0.5,color=cp[0])
         barlist[1].set_color(cp[1])

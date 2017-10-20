@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 import random
 from models.AnimalTimeSeriesCollection import AnimalTimeSeriesCollection
 from models.AnimalBoutSeriesCollection import AnimalBoutSeriesCollection
-from bokeh.plotting import figure, output_file, show
 
 class Animal(object):
     def __init__(self,ID=0):

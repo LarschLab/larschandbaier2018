@@ -7,6 +7,8 @@ Created on Thu Jun 30 10:11:29 2016
 import tkFileDialog
 from models.experiment import experiment
 from models.pair import shiftedPairSystematic
+import functions.video_functions as vf
+
 import os
 import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
@@ -16,16 +18,31 @@ from datetime import datetime
 from datetime import timedelta
 import numpy as np
 import seaborn as sns
+import glob
 
 class experiment_set(object):
-    def __init__(self,csvFile,systShift=0, timeStim=0,sizePlot=0,episodes=1):
+    def __init__(self,csvFile,
+                 systShift=0,
+                 timeStim=0,
+                 sizePlot=0,
+                 episodes=1,
+                 arenaDiameter_mm=100,
+                 recomputeAnimalSize=False,
+                 birthDay=[],
+                episodePLcode=False):
         
         self.systShift=systShift
         self.timeStim=timeStim
         self.sizePlot=sizePlot
         self.episodes=episodes
         self.csvFile=csvFile
+        self.arenaDiameter_mm=arenaDiameter_mm
+        self.recomputeAnimalSize=recomputeAnimalSize     
+        self.birthDay=birthDay
+        self.episodePLcode=episodePLcode
+
         self.process_csv_experiment_list()
+        
         #self.plot_group_summaries()
         
         if timeStim:
@@ -64,16 +81,48 @@ class experiment_set(object):
             
             try:                
                 pairListFile=row['pairList']
-                pairList=np.loadtxt(pairListFile,dtype='int')
+                pairListAll=np.loadtxt(pairListFile,dtype='int')
             except:
-                pairList=np.diag((-1,-1))+1
+                pairListAll=np.diag((-1,-1))+1
                 
-            numPairs=pairList.sum()
-            
+            if self.episodePLcode:
+                numPairs=15
+            else:
+                numPairs=pairListAll.sum()
             print 'processing: ', row['aviPath']
             currAvi=row['aviPath']
             currTxt=row['txtPath']
+            
+            # determine pixel scaling from arena ROI definition file if exists
+            try:
+                startDir, tail = os.path.split(currTxt)
 
+                ROIpath=    glob.glob(startDir+'\\ROIdef*') #skype experiments
+                if len(ROIpath)<1:
+                    ROIpath=    glob.glob(startDir+'\\bgMed_scale*') #skype experiments
+                    print 'no skype roi found'
+                    if len(ROIpath)<1:
+                        print 'no DishPair roi found'
+                        ROIpath=[]
+                    else:
+                        print 'DishPair roi found'
+                        rois=np.loadtxt(ROIpath[0],skiprows=1,delimiter=',')
+                        r_px=rois.mean(axis=0)[3]
+                    
+                else:
+                    print 'skype roi found'
+                    rois=np.loadtxt(ROIpath[0])
+                    r_px=rois.mean(axis=0)[-1]
+                    
+                self.roiPath=ROIpath[0]
+                self.pxPmm=2*r_px/self.arenaDiameter_mm
+
+
+            except:
+                self.pxPmm=[]
+                self.roiPath=[]
+            print 'pxPmm:',self.pxPmm
+            print 'ROIpath:',self.roiPath
             #read data for current experiment or many-dish-set
             #begin by reading first line to determine format
             firstLine=pd.read_csv(currTxt,header=None,nrows=1,sep=':')
@@ -84,17 +133,21 @@ class experiment_set(object):
                 rawData.drop(rawData.columns[[4]], axis=1,inplace=True)
                 
                 #rawData= mat.reshape((mat.shape[0],2,2))
+            elif firstLine.values[0][0][0]=='X':
+                rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True,skiprows =1)
+                episodeAll=pd.DataFrame(np.zeros(rawData.shape[0]))
             else:
                 
                 rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True)
                 episodeAll=rawData[rawData.columns[-1]]
-                
+            #print rawData.head()
 
                 
             ee_StartFrames=[]
             ee_AnimalIndex=[]
             ee_AnimalSet=[]
             ee_inDishTime=[]
+            ee_birthDay=[]
             ee_epiName=[]
             ee_si=[]
             ee_epiNr=[]
@@ -109,7 +162,7 @@ class experiment_set(object):
                 episodeDur=row['epiDur']
             except:
                 episodeDur=60
-                
+            
                 
             try:                
                 currAnimalSet=row['set']
@@ -121,19 +174,50 @@ class experiment_set(object):
             except:
                 currInDishTime=0
                 
-                
+            #get Animal Size
+            #try:
+            AnSizeFileOut=currTxt[:-4]+'_anSize.csv'
+            
+            if self.recomputeAnimalSize:
+               anSize=self.getAnimalSizeFromVideo(currAvi,rawData,numPairs=numPairs)
+               print 'saving anSize to', AnSizeFileOut
+               np.savetxt(AnSizeFileOut,anSize)
+               print 'Animal Size saved.'
+            else:
+                if np.equal(~os.path.isfile(AnSizeFileOut),-1):
+                    anSize=np.zeros(15)
+                else:
+                    anSize= np.loadtxt(AnSizeFileOut)
+            #except:
+            #    print 'no animal size'
+               
             #cycle through all pairs in this data
             for p in range(numPairs):
                 print p
                 currAnimal=p
-                currPartner=np.where(pairList[:,p])[0][0]
+                currPartner=np.where(pairListAll[:,p])[0][0]
                 
-                currCols=[p*3,p*3+1,currPartner*3,currPartner*3+1]
+                if currPartner <= numPairs:
+                    ps=0
+                else:
+                    ps=anSize[currPartner]
+                    
+                currSize=[anSize[p],ps]
+                
+                currCols=[p*3,p*3+1,p*3+2,currPartner*3,currPartner*3+1,currPartner*3+2]
                 currDf=rawData[rawData.columns[currCols]]
                 #p1=df[[6,7,9,10]].values[:30*60*120].reshape(-1,2,2)
-                data=currDf.values.reshape(-1,2,2)
+                data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
+                currCenterPx=rois[p,-1]+2
+                currCenterPx=np.array([currCenterPx,currCenterPx])
                 
-                self.experiments.append(experiment(currAvi,currTxt,data=data,forceCorrectPixelScaling=False,anSize=np.array([[5.,5.],[5,5]])))
+                print 'animalSize:',currSize
+                self.experiments.append(experiment(currAvi, currTxt,
+                                                   data=data,
+                                                   pxPmm=self.pxPmm,
+                                                   anSize=currSize,
+                                                   arenaCenterPx=currCenterPx,
+                                                   episodeMarker=episodeAll.values))
                 
                 numFrames=self.experiments[-1].expInfo.numFrames
                 fps=self.experiments[-1].expInfo.fps
@@ -150,6 +234,12 @@ class experiment_set(object):
                 else:
                     numEpi=int(self.episodes)
                     
+                if self.birthDay==[]:
+                    currBirthDay=np.nan
+                else:
+                    currBirthDay=self.birthDay[p]
+                
+
                 #try:
                 #    episodeAll = pd.read_csv(currTxt, names=['episode'], sep=',|\)', engine='python',usecols=[7],index_col=None,header=None)
                 #    print('read episode names')
@@ -166,6 +256,7 @@ class experiment_set(object):
     #                    pass
                 
                # print numEpi
+                #print 'data:',self.experiments[-1].rawTra.shape
                 for i in range(numEpi):
                     ee_epiNr.append(i)
                     episodeFrames=self.experiments[-1].expInfo.fps*episodeDur*60
@@ -174,12 +265,42 @@ class experiment_set(object):
                     ee_AnimalIndex.append(currAnimal)
                     ee_AnimalSet.append(currAnimalSet)
                     ee_inDishTime.append((rng[0]/(30*60))+currInDishTime)
+                    ee_birthDay.append(currBirthDay)
                     try:
                         ee_epiName.append(episodeAll.loc[rng[0]])
                     except:
                         ee_epiName.append('n')
-                    #print('episode: ', i, ' , ', rng[0],rng[-1])
-                    self.ee.append(experiment(currAvi,currTxt,rng=rng,data=self.experiments[-1].rawTra,forceCorrectPixelScaling=False,anSize=np.array([[5.,5.],[5,5]])))
+                        
+                    if self.episodePLcode:
+                        pairListNr=int(ee_epiName[-1][:2])
+                        pairList=pairListAll[pairListNr*16:(pairListNr+1)*16]
+                    else:
+                        pairList=pairListAll
+                        
+                    
+                    currPartner=np.where(pairList[:,p])[0][0]
+                    
+                    if currPartner >= numPairs:
+                        ps=0
+                    else:
+                        ps=anSize[currPartner]
+                        
+                    currSize=[anSize[p],ps]
+                    
+                    currCols=[p*3,p*3+1,p*3+2,currPartner*3,currPartner*3+1,currPartner*3+2]
+                    currDf=rawData[rawData.columns[currCols]].iloc[rng]
+                    data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
+                    currCenterPx=rois[p,-1]+2
+                    currCenterPx=np.array([currCenterPx,currCenterPx])
+                
+
+                    self.ee.append(experiment(currAvi,currTxt,
+                                              #rng=rng,
+                                              data=data,
+                                              pxPmm=self.pxPmm,
+                                              anSize=currSize,
+                                              arenaCenterPx=currCenterPx,
+                                              episodeMarker=episodeAll.values[rng]))
                     
                     ee_si.append(self.ee[-1].ShoalIndex())
                     
@@ -205,27 +326,126 @@ class experiment_set(object):
             inDishTime=np.array(ee_inDishTime)
             episodeName=np.array(ee_epiName)
             epiNr=np.array(ee_epiNr)
+            bd=np.array(ee_birthDay)
+
+            avgSpeed=np.array([x.avgSpeed()[0] for x in self.ee])[-numEpi*numPairs:]
+            thigmoIndex=np.array([x.thigmoIndex[0] for x in self.ee])[-numEpi*numPairs:]
+            boutDur=np.array([x.medBoutDur[0] for x in self.ee])[-numEpi*numPairs:]
+            leadershipIndex=np.array([x.LeadershipIndex[0] for x in self.ee])[-numEpi*numPairs:]
+            anSize=np.array([x.AnSize[0] for x in self.ee])[-numEpi*numPairs:]
             
             head, tail = os.path.split(currAvi)
+            
             try:
+                
                 datetime_object = datetime.strptime(tail[-18:-4], '%Y%m%d%H%M%S')
-
                 tRun=[datetime_object + timedelta(minutes=x) for x in inDishTime]
             except:
                 tRun=inDishTime
             
+            ageAll=[(datetime_object-x).days for x in bd]
+            
             
             df=pd.DataFrame(
             {'animalSet':animalSet,'animalIndex':AnimalIndex,
-            'si':si,'episode':episodeName,'epStart':episodeStartFrame,
-            'inDishTime':inDishTime,'epiNr':epiNr,'time':tRun})
+            'si':si,'episode':episodeName.squeeze(),'epStart':episodeStartFrame,
+            'inDishTime':inDishTime,'epiNr':epiNr,'time':tRun,'birthDay':bd,'age':ageAll})
+            
+
+            df['avgSpeed']=avgSpeed
+            df['anSize']=anSize
+            df['thigmoIndex']=thigmoIndex
+            df['boutDur']=boutDur
+            df['leadershipIndex']=leadershipIndex
             if currTxt=='none':
                 csvFileOut=head+'_siSummary_epi'+str(episodeDur)+'.csv'
             else:
                 csvFileOut=currTxt[:-4]+'_siSummary_epi'+str(episodeDur)+'.csv'
             df.to_csv(csvFileOut,encoding='utf-8')
             
+
+    
+    def getAnimalSizeFromVideo(self,currAvi,rawData,sizePercentile=40,numPairs=15):           
+        xMax=2048.0 #relevant for openGL scaling
+        numFrames=2000#2000
+        maxFrames=100000
+        boxSize=200
+        head, tail = os.path.split(currAvi)
+        print 'processing animals size:', currAvi
+        ROIPath=self.roiPath#glob.glob(head+'\\ROI*.csv')
+        
+        head, tail = os.path.split(ROIPath)
+        #print tail
+        if tail[:3]=='ROI':
+            rois=np.loadtxt(ROIPath)
+            correct=True
             
+            #for virtual pairing, can use random frames, no need to avoid collisions
+            traAll=np.zeros((numFrames,numPairs,2))
+            frames=np.random.randint(1000,20000,numFrames)
+            for i in range(numPairs):
+                currCols=[i*3,i*3+1]
+                rawTra=rawData[rawData.columns[currCols]].values
+                tra=rawTra.copy()
+                xx=rawTra[:,0]
+                yy=rawTra[:,1]
+                xoff=rois[i,0]
+                yoff=rois[i,1]
+                xx,yy=self.correctFish(xx,yy,xoff,yoff,xMax,53.)
+                tra[:,0]=xx+xoff
+                tra[:,1]=yy+yoff
+                traAll[:,i,:]=tra[frames,:].copy()           
+            
+        else:
+            currCols=[0,1,3,4]
+            rawTra=rawData[rawData.columns[currCols]].values.reshape(-1,2,2)
+            rois=np.loadtxt(ROIPath,skiprows=1,delimiter=',')
+            correct=False
+        
+            haveFrames=0
+            frames=np.zeros(numFrames).astype('int')
+            dist=np.zeros(numFrames)
+            
+            triedFr=[]
+            triedD=[]
+            print 'determining 2000 frames to read animal size...'
+            while haveFrames<numFrames:
+                tryFrame=np.random.randint(1000,maxFrames,1)
+                minDist=np.max(np.abs(np.diff(rawTra[tryFrame,:,:],axis=1)))
+                if minDist>boxSize:
+                    frames[haveFrames]=int(tryFrame)
+                    dist[haveFrames]=minDist
+                    haveFrames += 1
+                else:
+                    triedFr.append(tryFrame)
+                    triedD.append(minDist)
+            
+            print 'done. tried',len(triedFr),'frames'
+            traAll=np.zeros((numFrames,numPairs,2))
+            for i in range(numPairs):
+                currCols=[i*3,i*3+1]
+                rawTra=rawData[rawData.columns[currCols]].values
+                tra=rawTra.copy()
+                traAll[:,i,:]=tra[frames,:].copy()           
+
+
+
+        invert=(not correct)
+        print 'inverting video',invert
+        tmp=vf.getAnimalLength(currAvi,frames,traAll,threshold=5,invert=invert)
+
+        anSize=[]
+        MA=[]
+        for i in range(numPairs):
+            MA.append(np.max(tmp[:,i,2:4],axis=1))
+            anSize.append(np.nanpercentile(MA[i],sizePercentile))
+        
+        fnSizeAll=head+'\\anSizeAll.csv'
+        #print 'writing size to',fnSizeAll
+        with open(fnSizeAll,'wb') as f:
+            np.savetxt(f,np.array(MA),fmt='%.5f')
+            
+        return np.array(anSize)/self.pxPmm
                
     def plot_group_summaries(self):
         self.df['ShoalIndex']=pd.DataFrame([f.ShoalIndex([]) for f in self.experiments])
@@ -268,8 +488,8 @@ class experiment_set(object):
         
             
     def plot_shoaling_vs_size(self):
-        AnS=np.sqrt(np.sort(np.array([f.AnSize[:,1] for f in self.experiments]),axis=1))/3
-        AnSm=np.mean(AnS,axis=1)
+        AnS=np.sqrt(np.sort(np.array([f.AnSize[0] for f in self.experiments]),axis=0))/3
+        AnSm=np.mean(AnS,axis=0)
         si=([f.ShoalIndex([]) for f in self.experiments])
         xErr=np.abs(AnS[:,0]-AnS[:,1])/2
         plt.figure()
@@ -306,3 +526,16 @@ class experiment_set(object):
         mpl_is_inline = 'inline' in matplotlib.get_backend()
         if not mpl_is_inline:
             self.pdf.savefig()
+            
+
+
+    def correctFish(self,x,y,xOff,yOff,xMax,xMaxCm):
+      yMax=1280.0
+      scale=xMax/xMaxCm
+      xR=x+xOff
+      yR=y+yOff
+    
+      xR=xR+(scale*(xR-xMax/2.)/(79*scale))
+      yR=yR+(scale*(yR-yMax/2.)/(79*scale))
+    
+      return xR-xOff,yR-yOff

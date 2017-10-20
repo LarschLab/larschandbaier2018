@@ -24,7 +24,7 @@ from models.geometry import Trajectory
 import functions.matrixUtilities_joh as mu
 import scipy.stats as sta
 import models.geometry as geometry
-
+import functions.peakdet as pkd
 
 class AnimalTimeSeriesCollection:
     def __init__(self):
@@ -44,9 +44,12 @@ class AnimalTimeSeriesCollection:
 #--------------------------
 #fundamental time series
 #--------------------------
-    
+    def trackedHeading(self):
+        x=self.animal.pair.experiment.rawTra[:,self.ID,2]
+        return self.timeShift(x)
+        
     def rawTra(self):
-        x=self.animal.pair.experiment.rawTra[:,self.ID,:]
+        x=self.animal.pair.experiment.rawTra[:,self.ID,:2]
         return Trajectory(self.timeShift(x))
     
     def tailCurvature_mean(self):
@@ -60,7 +63,9 @@ class AnimalTimeSeriesCollection:
     def centroidContour(self):
         x=self.animal.pair.experiment.centroidContour[:,:,self.ID]
         return Trajectory(self.timeShift(x))
+        
 
+        
 #--------------------------
 #derived time series
 #--------------------------
@@ -152,6 +157,10 @@ class AnimalTimeSeriesCollection:
         neighborMat=np.histogramdd(self.position_relative_to_neighbor_rot().xy,bins=[mapBins,mapBins],normed=True)[0]*neighborMat.shape[0]**2
         
         return neighborMat
+        
+#-------simple bout analysis------
+    def boutStart(self):
+        return pkd.detect_peaks(self.speed(),mph=5,mpd=8)
     
 #------Force matrices-------
 #creates force matrix (how did focal animal accelerate depending on neighbor position)
