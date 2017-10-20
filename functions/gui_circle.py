@@ -115,10 +115,11 @@ class gui_circles(object):
                 self.CirclesDone +=1
                 #print self.CirclesDone
                 self.roiAll.append(roi)
+                codecRound=16
                 largest_square=np.min([self.frame.shape[0:1]-roi[0:1]-4,roi[0:1]])*2
-                largest_square=largest_square-4+np.mod(largest_square,4)
+                largest_square=largest_square-codecRound+np.mod(largest_square,codecRound)
                 wh=np.min([largest_square,roi[2]*2+roi[2]*.1]) #width and height of roi around circular roi
-                wh=np.min([largest_square,wh+4-np.mod(wh,4)]) #expand to multiple of 4 for videoCodecs
+                wh=np.min([largest_square,wh+codecRound-np.mod(wh,codecRound)]) #expand to multiple of 4 for videoCodecs
                 self.roiSq.append([wh,wh,roi[0]-wh/2,roi[1]-wh/2,self.ArenaDiameter])
                 
         else:
