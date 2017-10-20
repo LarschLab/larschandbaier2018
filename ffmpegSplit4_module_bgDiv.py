@@ -28,7 +28,10 @@ def videoSplit(aviP):
     head, tail = os.path.split(aviP)
     
     #get median background image for background division
-    vidMed,bg_file,minval2=vf.getMedVideo(aviP,9,1)
+    #vidMed,bg_file,minval2=vf.getMedVideo(aviP,9,1)
+    
+    vidMed,bg_file=vf.getMedVideo(aviP,9,1)
+    minval2=np.min(vidMed)-5
     bgPath=(head+'/bgMed.tif')
 
     
