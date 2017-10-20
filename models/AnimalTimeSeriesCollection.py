@@ -72,13 +72,17 @@ class AnimalTimeSeriesCollection:
         x=(self.rawTra().xy-arenaCenterPx) / pxPmm
         return Trajectory(x)
         
+    def position_smooth(self):
+        x=self.position().xy
+        return Trajectory(mu.smooth(x,window_len=5,window='hamming'))
+        
     def positionPol(self):
         x=[mu.cart2pol(*self.position().xy.T)]
         x=np.squeeze(np.array(x).T)
         return Trajectory(x)
         
     def d_position(self):
-        x=np.diff(self.position().xy,axis=0)
+        x=np.diff(self.position_smooth().xy,axis=0)
         return Trajectory(x)
         
     def dd_position(self):
@@ -102,19 +106,23 @@ class AnimalTimeSeriesCollection:
     def heading(self):
         return mu.cart2pol(*self.d_position().xy.T)[0] #heading[0] = heading, heading[1] = speed
         #heading: pointing right = 0, pointung up = pi/2  
+        
+    
+        
+        
     def d_heading(self):
-        return np.diff(self.heading)
+        return np.diff(self.heading())
         
     #currently, this is the position of the neighbor, relative to focal animal name is misleading...
     def position_relative_to_neighbor(self):
-        x= self.animal.neighbor.ts.position().xy-self.position().xy
+        x= self.animal.neighbor.ts.position_smooth().xy-self.position_smooth().xy
         return Trajectory(x)
         
     #rotate self to face up in order to map neighbor position relative to self
     def position_relative_to_neighbor_rot(self):
         relPosPol=[mu.cart2pol(*self.position_relative_to_neighbor().xy.T)]
-        relPosPolRot=np.squeeze(np.array(relPosPol).T)
-        relPosPolRot=relPosPolRot[1:,:]
+        relPosPolRot=np.squeeze(np.array(relPosPol).T)[:-1,:]
+        #relPosPolRot=relPosPolRot[1:,:]
         relPosPolRot[:,0]=relPosPolRot[:,0]-self.heading()
         x=[mu.pol2cart(relPosPolRot[:,0],relPosPolRot[:,1])]
         x=np.squeeze(np.array(x).T)
@@ -157,12 +165,12 @@ class AnimalTimeSeriesCollection:
     #speed - using only acceleration component aligned with heading
     def ForceMat_speed(self):
         mapBins=np.arange(-31,32)
-        sta.binned_statistic_2d(self.position_relative_to_neighbor_rot.x()[1:],self.position_relative_to_neighbor_rot.y()[1:],self.dd_pos_pol_rot().xy[:,0],bins=[mapBins,mapBins])[0]
+        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],self.position_relative_to_neighbor_rot().y()[1:],self.dd_pos_pol_rot().xy[:,0],bins=[mapBins,mapBins])[0]
     
     #turn - using only acceleration component perpendicular to heading   
     def ForceMat_turn(self):
         mapBins=np.arange(-31,32)
-        sta.binned_statistic_2d(self.position_relative_to_neighbor_rot.x()[1:],self.position_relative_to_neighbor_rot.y()[1:],self.dd_pos_pol_rot().xy[:,1],bins=[mapBins,mapBins])[0]
+        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],self.position_relative_to_neighbor_rot().y()[1:],self.dd_pos_pol_rot().xy[:,1],bins=[mapBins,mapBins])[0]
     
     #percentage of time the neighbor animal was in front vs. behind focal animal
     def FrontnessIndex(self):
