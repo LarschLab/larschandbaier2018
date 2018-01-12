@@ -111,15 +111,18 @@ class experiment(object):
 
         #check if orientation was available as third column from csv file.
         #if not, fill with zeros
-        if data.shape[2]==2:
-            ori=np.zeros((list(data.shape[:2])+[1]))
-            np.concatenate((data,ori),axis=2)
+        if self.rawTra.shape[2]==2:
+            ori=np.zeros((list(self.rawTra.shape[:2])+[1]))
+            self.rawTra=np.concatenate((self.rawTra,ori),axis=2)
             
         if readPathOnly:
             return
             
         if anSize==[]:
-            self.AnSize=vf.getAnimalSize(self,e2=e2)/self.expInfo.pxPmm
+            try:
+                self.AnSize=vf.getAnimalSize(self,e2=e2)/self.expInfo.pxPmm
+            except:
+                self.AnSize=[0,0]
         else:
             self.AnSize=anSize
 #        print self.AnSize
@@ -175,6 +178,7 @@ class experiment(object):
             #self.ShoalIndex=(self.spIAD_m()-np.nanmean(self.pair.IAD()))/self.spIAD_m()
             #self.totalPairTravel=sum(self.Pair.totalTravel)
             self.avgSpeed=self.pair.avgSpeed
+            self.avgSpeed_smooth=self.pair.avgSpeed_smooth
             self.idQuality=np.mean(probTra[probTra>=0])*100
             self.thigmoIndex=np.array([np.nanmean(an.ts.positionPol().y()) for an in self.pair.animals])
 

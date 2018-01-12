@@ -92,6 +92,11 @@ class Pair(object):
         a1=np.nanmean(self.animals[0].ts.speed())
         a2=np.nanmean(self.animals[1].ts.speed())
         return np.array([a1,a2])
+
+    def avgSpeed_smooth(self):
+        a1=np.nanmean(self.animals[0].ts.speed_smooth())
+        a2=np.nanmean(self.animals[1].ts.speed_smooth())
+        return np.array([a1,a2])
         
     def max_out_venture(self):
         mov=[]
