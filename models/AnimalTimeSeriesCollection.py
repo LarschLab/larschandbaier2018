@@ -86,13 +86,21 @@ class AnimalTimeSeriesCollection:
         x=np.squeeze(np.array(x).T)
         return Trajectory(x)
         
-    def d_position(self):
+    def d_position_Smooth(self):
         x=np.diff(self.position_smooth().xy,axis=0)
         return Trajectory(x)
         
-    def dd_position(self):
-        x=np.diff(self.d_position().xy,axis=0)
+    def d_position(self):
+        x=np.diff(self.position().xy,axis=0)
         return Trajectory(x)
+        
+    def dd_position(self):
+        x=np.diff(self.d_position_Smooth().xy,axis=0)
+        return Trajectory(x)
+        
+    def travel_smooth(self):
+        x=mu.distance(*self.d_position_Smooth().xy.T)
+        return x
         
     def travel(self):
         x=mu.distance(*self.d_position().xy.T)
@@ -101,15 +109,19 @@ class AnimalTimeSeriesCollection:
     def speed(self):
         fps=self.animal.pair.experiment.expInfo.fps
         return self.travel() *fps
-        
+    
+    def speed_smooth(self):
+        fps=self.animal.pair.experiment.expInfo.fps
+        return self.travel_smooth() *fps
+    
     def totalTravel(self):
         return np.nansum(np.abs(self.travel()))
         
     def accel(self):
-        return np.diff(self.speed())
+        return np.diff(self.speed_smooth())
         
     def heading(self):
-        return mu.cart2pol(*self.d_position().xy.T)[0] #heading[0] = heading, heading[1] = speed
+        return mu.cart2pol(*self.d_position_Smooth().xy.T)[0] #heading[0] = heading, heading[1] = speed
         #heading: pointing right = 0, pointung up = pi/2  
         
     
@@ -160,7 +172,7 @@ class AnimalTimeSeriesCollection:
         
 #-------simple bout analysis------
     def boutStart(self):
-        return pkd.detect_peaks(self.speed(),mph=5,mpd=8)
+        return pkd.detect_peaks(self.speed_smooth(),mph=5,mpd=8)
     
 #------Force matrices-------
 #creates force matrix (how did focal animal accelerate depending on neighbor position)
