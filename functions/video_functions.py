@@ -83,8 +83,8 @@ def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,bg_file=''
     elif forceInput or (np.equal(~os.path.isfile(scaleFile),-1) and  forceCorrectPixelScaling):
         scaleData=np.array(np.loadtxt(scaleFile, skiprows=1,dtype=float))
     else:
-        #print 'no PixelScaling found, using 4 pxPmm'
-        return 4
+        print 'no PixelScaling found, using 8 pxPmm'
+        return 8
 
     pxPmm=2*scaleData['circle radius']/scaleData['arena size']
     return pxPmm.values[0]
