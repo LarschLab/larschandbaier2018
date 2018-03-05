@@ -91,55 +91,65 @@ class experiment_set(object):
             print 'processing: ', row['aviPath']
             currAvi=row['aviPath']
             currTxt=row['txtPath']
-            
-            # determine pixel scaling from arena ROI definition file if exists
-            try:
-                startDir, tail = os.path.split(currTxt)
-
-                ROIpath=    glob.glob(startDir+'\\ROIdef*') #skype experiments
-                if len(ROIpath)<1:
-                    ROIpath=    glob.glob(startDir+'\\bgMed_scale*') #skype experiments
-                    print 'no skype roi found'
-                    if len(ROIpath)<1:
-                        print 'no DishPair roi found'
-                        ROIpath=[]
-                    else:
-                        print 'DishPair roi found'
-                        rois=np.loadtxt(ROIpath[0],skiprows=1,delimiter=',')
-                        r_px=rois.mean(axis=0)[3]
-                    
-                else:
-                    print 'skype roi found'
-                    rois=np.loadtxt(ROIpath[0])
-                    r_px=rois.mean(axis=0)[-1]
-                    
-                self.roiPath=ROIpath[0]
-                self.pxPmm=2*r_px/self.arenaDiameter_mm
-
-
-            except:
+            head, tail = os.path.split(currAvi)
+            if (currTxt == []) or (currTxt=='none'):
+                print 'reading: ',currTxt
+                currTxt = os.path.join(head,'trajectories_nogaps.mat')
+                mat=scipy.io.loadmat(currTxt)
+                rawData= mat['trajectories']
                 self.pxPmm=[]
-                self.roiPath=[]
-            print 'pxPmm:',self.pxPmm
-            print 'ROIpath:',self.roiPath
-            #read data for current experiment or many-dish-set
-            #begin by reading first line to determine format
-            firstLine=pd.read_csv(currTxt,header=None,nrows=1,sep=':')
-            
-            if firstLine.values[0][0][0]=='(':
-                rawData = pd.read_csv(currTxt, sep=',|\)|\(', engine='python',index_col=None,header=None,skipfooter=1,usecols=[2,3,6,7,10],names=np.arange(5))
-                episodeAll=rawData[4]
-                rawData.drop(rawData.columns[[4]], axis=1,inplace=True)
-                
-                #rawData= mat.reshape((mat.shape[0],2,2))
-            elif firstLine.values[0][0][0]=='X':
-                rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True,skiprows =1)
                 episodeAll=pd.DataFrame(np.zeros(rawData.shape[0]))
-            else:
                 
-                rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True)
-                episodeAll=rawData[rawData.columns[-1]]
-            #print rawData.head()
+            else:
+                # determine pixel scaling from arena ROI definition file if exists
+                try:
+                    startDir, tail = os.path.split(currTxt)
+    
+                    ROIpath=    glob.glob(startDir+'\\ROIdef*') #skype experiments
+                    if len(ROIpath)<1:
+                        ROIpath=    glob.glob(startDir+'\\bgMed_scale*') #skype experiments
+                        print 'no skype roi found'
+                        if len(ROIpath)<1:
+                            print 'no DishPair roi found'
+                            ROIpath=[]
+                        else:
+                            print 'DishPair roi found'
+                            rois=np.loadtxt(ROIpath[0],skiprows=1,delimiter=',')
+                            r_px=rois.mean(axis=0)[3]
+                        
+                    else:
+                        print 'skype roi found'
+                        rois=np.loadtxt(ROIpath[0])
+                        r_px=rois.mean(axis=0)[-1]
+                        
+                    self.roiPath=ROIpath[0]
+                    self.pxPmm=2*r_px/self.arenaDiameter_mm
+    
+    
+                except:
+                    self.pxPmm=[]
+                    self.roiPath=[]
+                print 'pxPmm:',self.pxPmm
+                print 'ROIpath:',self.roiPath
+                #read data for current experiment or many-dish-set
+                #begin by reading first line to determine format
+                print 'reading: ',currTxt
+                firstLine=pd.read_csv(currTxt,header=None,nrows=1,sep=':')
+                
+                if firstLine.values[0][0][0]=='(':
+                    rawData = pd.read_csv(currTxt, sep=',|\)|\(', engine='python',index_col=None,header=None,skipfooter=1,usecols=[2,3,6,7,10],names=np.arange(5))
+                    episodeAll=rawData[4]
+                    rawData.drop(rawData.columns[[4]], axis=1,inplace=True)
+                    
+                    #rawData= mat.reshape((mat.shape[0],2,2))
+                elif firstLine.values[0][0][0]=='X':
+                    rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True,skiprows =1)
+                    episodeAll=pd.DataFrame(np.zeros(rawData.shape[0]))
+                else:
+                    
+                    rawData=pd.read_csv(currTxt,header=None,delim_whitespace=True)
+                    episodeAll=rawData[rawData.columns[-1]]
+                #print rawData.head()
 
                 
             ee_StartFrames=[]
@@ -162,7 +172,7 @@ class experiment_set(object):
             except:
                 episodeDur=60
             
-                
+            print episodeDur
             try:                
                 currAnimalSet=row['set']
             except:
@@ -205,11 +215,16 @@ class experiment_set(object):
                 currSize=[anSize[p],ps]
                 
                 currCols=[p*3,p*3+1,p*3+2,currPartner*3,currPartner*3+1,currPartner*3+2]
-                currDf=rawData[rawData.columns[currCols]]
+                try:                
+                    currDf=rawData[rawData.columns[currCols]]
                 #p1=df[[6,7,9,10]].values[:30*60*120].reshape(-1,2,2)
-                data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
-                currCenterPx=rois[p,-1]+2
-                currCenterPx=np.array([currCenterPx,currCenterPx])
+                    data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
+                    currCenterPx=rois[p,-1]+2
+                    currCenterPx=np.array([currCenterPx,currCenterPx])               
+                except:
+                    data=rawData
+                    currCenterPx=[]
+
                 
                 print 'animalSize:',currSize
                 self.experiments.append(experiment(currAvi, currTxt,
@@ -233,6 +248,7 @@ class experiment_set(object):
                     print 'new episode number',numEpi
                 else:
                     numEpi=int(self.episodes)
+                    print 'using episode number',numEpi, episodeDur
                     
                 if self.birthDay==[]:
                     currBirthDay=np.nan
@@ -295,10 +311,20 @@ class experiment_set(object):
                         currSize=[anSize[p],ps]
                         
                         currCols=[p*3,p*3+1,p*3+2,currPartner*3,currPartner*3+1,currPartner*3+2]
-                        currDf=rawData[rawData.columns[currCols]].iloc[rng]
-                        data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
-                        currCenterPx=rois[p,-1]+2
-                        currCenterPx=np.array([currCenterPx,currCenterPx])
+                        try:                        
+                            currDf=rawData[rawData.columns[currCols]].iloc[rng]
+                            data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
+                            currCenterPx=rois[p,-1]+2
+                            currCenterPx=np.array([currCenterPx,currCenterPx])
+                        except:
+                            
+                            print 'using all data'
+                            data=rawData[rng,:,:]
+                            #data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
+                            currCenterPx=[]
+                            currCenterPx=[]
+                        #    data=rawData
+                        #    currCenterPx=[]
                     
                         nmp+=1
                         self.ee.append(experiment(currAvi,currTxt,
@@ -354,8 +380,10 @@ class experiment_set(object):
             except:
                 tRun=np.array(inDishTime)
             
-            ageAll=np.array([(datetime_object-x).days for x in bd])
-            
+            try:
+                ageAll=np.array([(datetime_object-x).days for x in bd])
+            except:
+                ageAll=np.zeros(avgSpeed.shape)
 #            print animalSet.shape
 #            print cp.shape
 #            print ageAll.shape
