@@ -104,7 +104,9 @@ class experiment(object):
         self.episodeMarker=episodeMarker
 
         if data==[]:
+            print 'loading data'
             self.rawTra,probTra=self.loadData()
+            print self.rawTra.shape
         else:
             self.rawTra=data
             probTra=[1,1]

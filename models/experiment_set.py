@@ -8,6 +8,7 @@ import tkFileDialog
 from models.experiment import experiment
 from models.pair import shiftedPairSystematic
 import functions.video_functions as vf
+import scipy.io
 
 import os
 import pandas as pd
@@ -413,13 +414,14 @@ class experiment_set(object):
             
             numepiAll=numEpi*numPairs
             nmAll=np.zeros((numepiAll,3,2,62,62)) #animal,[neighbor,speed,turn],[data,shuffle0],[mapDims]
+            
             for i in range(numepiAll):
-                nmAll[i,0,0,:,:]=self.ee[i].pair.animals[0].ts.neighborMat()
-                nmAll[i,0,1,:,:]=self.ee[i].sPair[0].animals[0].ts.neighborMat()
-                nmAll[i,1,0,:,:]=self.ee[i].pair.animals[0].ts.ForceMat_speed()
-                nmAll[i,1,1,:,:]=self.ee[i].sPair[0].animals[0].ts.ForceMat_speed()
-                nmAll[i,2,0,:,:]=self.ee[i].pair.animals[0].ts.ForceMat_turn()
-                nmAll[i,2,1,:,:]=self.ee[i].sPair[0].animals[0].ts.ForceMat_turn()
+                nmAll[i,0,0,:,:]=self.ee[-nmp+i].pair.animals[0].ts.neighborMat()
+                nmAll[i,0,1,:,:]=self.ee[-nmp+i].sPair[0].animals[0].ts.neighborMat()
+                nmAll[i,1,0,:,:]=self.ee[-nmp+i].pair.animals[0].ts.ForceMat_speed()
+                nmAll[i,1,1,:,:]=self.ee[-nmp+i].sPair[0].animals[0].ts.ForceMat_speed()
+                nmAll[i,2,0,:,:]=self.ee[-nmp+i].pair.animals[0].ts.ForceMat_turn()
+                nmAll[i,2,1,:,:]=self.ee[-nmp+i].sPair[0].animals[0].ts.ForceMat_turn()
                 
             npyFileOut=currTxt[:-4]+'MapData.npy'
             np.save(npyFileOut,nmAll)
