@@ -23,14 +23,14 @@ def paper():
     
     mpl.rcParams['lines.linewidth'] = 1
     pylab.rcParams['figure.autolayout'] = False
-    mpl.rcParams['axes.labelsize'] = 12
-    mpl.rcParams['axes.titlesize'] = 12
-    mpl.rcParams['figure.titlesize'] = 12
+    mpl.rcParams['axes.labelsize'] = 10
+    mpl.rcParams['axes.titlesize'] = 10
+    mpl.rcParams['figure.titlesize'] = 10
     mpl.rcParams['xtick.labelsize'] = 10
     mpl.rcParams['ytick.labelsize'] = 10
     pylab.rcParams['font.size'] = 10
     pylab.rcParams['lines.linewidth'] = 1.0
-    pylab.rcParams['lines.markersize'] = 8
+    pylab.rcParams['lines.markersize'] = 10
     pylab.rcParams['legend.fontsize'] = 8
     pylab.rcParams['figure.dpi'] = 100
     pylab.rcParams['savefig.dpi'] = 100
