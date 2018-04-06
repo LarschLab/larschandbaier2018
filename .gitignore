@@ -1,2 +1,13 @@
 *.pyc
 .idea/
+fo
+release/
+ipython_notebooks/_m/.ipynb_checkpoints/
+ipython_notebooks/Alex/.ipynb_checkpoints/20180320_RP3_sizeTune-checkpoint.ipynb
+ipython_notebooks/individualExperiments/.ipynb_checkpoints/20171130_PairChoice_a-checkpoint.ipynb
+ipython_notebooks/individualExperiments/.ipynb_checkpoints/20171206_TectumMTZ_sizeTune_Summary-checkpoint.ipynb
+ipython_notebooks/tests/.ipynb_checkpoints/20180316_netlogoAnalysis_4an_socialVar-checkpoint.ipynb
+ipython_notebooks/tests/.ipynb_checkpoints/20180316_netlogoAnalysis_PaperParams-checkpoint.ipynb
+ipython_notebooks/tests/.ipynb_checkpoints/20180319_netlogoAnalysis_PaperParams_fineGrain-checkpoint.ipynb
+ipython_notebooks/tests/.ipynb_checkpoints/20180320_netlogoAnalysis_4an_socialVar_BoutSpeed-checkpoint.ipynb
+ipython_notebooks/tests/.ipynb_checkpoints/20180321_netlogoAnalysis_4an_ExplicitPreference-checkpoint.ipynb
