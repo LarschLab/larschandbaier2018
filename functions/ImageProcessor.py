@@ -331,16 +331,16 @@ def crop_zero_pad(img_input,xy_point,cropSize=300):
     img_crop=np.zeros((cropSize,cropSize),dtype='uint8')
     frame_size=img_input.shape
 
-    xmin=np.max([cropSize/2-xy_point.x,0]) 
-    xmax=np.min([(frame_size[1]-xy_point.x+cropSize/2),cropSize])
-    ymin=np.max([cropSize/2-xy_point.y,0]) 
-    ymax=np.min([(frame_size[0]-xy_point.y+cropSize/2),cropSize])
+    xmin=int(np.max([cropSize/2-xy_point.x,0]))
+    xmax=int(np.min([(frame_size[1]-xy_point.x+cropSize/2),cropSize]))
+    ymin=int(np.max([cropSize/2-xy_point.y,0]) )
+    ymax=int(np.min([(frame_size[0]-xy_point.y+cropSize/2),cropSize]))
     
-    xminget=np.max([xy_point.x-cropSize/2,0])
-    xmaxget=np.min([cropSize/2+xy_point.x,frame_size[1]])
-    yminget=np.max([xy_point.y-cropSize/2,0])
-    ymaxget=np.min([cropSize/2+xy_point.y,frame_size[0]])
-    
+    xminget=int(np.max([xy_point.x-cropSize/2,0]))
+    xmaxget=int(np.min([cropSize/2+xy_point.x,frame_size[1]]))
+    yminget=int(np.max([xy_point.y-cropSize/2,0]))
+    ymaxget=int(np.min([cropSize/2+xy_point.y,frame_size[0]]))
+    #print(yminget,ymaxget,xminget,xmaxget)
     crop_data = img_input[yminget:ymaxget,xminget:xmaxget]
 
     img_crop[ymin:ymin+crop_data.shape[0],xmin:xmin+crop_data.shape[1]] = crop_data

@@ -86,7 +86,7 @@ def smooth(x,window_len=11,window='hanning'):
 
 
     if x.size < window_len:
-        raise ValueError, "Input vector needs to be bigger than window size."
+        raise ValueError("Input vector needs to be bigger than window size.")
 
 
     if window_len<3:
@@ -94,7 +94,7 @@ def smooth(x,window_len=11,window='hanning'):
 
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError, "Window is not one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        raise ValueError("Window is not one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
 
     
@@ -105,17 +105,17 @@ def smooth(x,window_len=11,window='hanning'):
         w=eval('np.'+window+'(window_len)')
 
     if x.ndim > 2:
-        raise ValueError, "smooth only accepts 1 or 2 dimension arrays."
+        raise ValueError("smooth only accepts 1 or 2 dimension arrays.")
 
     if x.ndim == 1:
         s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-        yAll=np.convolve(w/w.sum(),s,mode='valid')[(window_len/2-1):-(window_len/2)]
+        yAll=np.convolve(w/w.sum(),s,mode='valid')[int((window_len/2-1)):-int(window_len/2)]
         
     if x.ndim == 2:
         y=[]
         for c in range(x.shape[1]):
             s=np.r_[x[window_len-1:0:-1,c],x[:,c],x[-2:-window_len-1:-1,c]]
-            y.append(np.convolve(w/w.sum(),s,mode='valid')[(window_len/2-1):-(window_len/2)])
+            y.append(np.convolve(w/w.sum(),s,mode='valid')[int(window_len/2-1):-int(window_len/2)])
         yAll=np.array(y).T
     
     return yAll

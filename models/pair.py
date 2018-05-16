@@ -55,7 +55,7 @@ class Pair(object):
         try:
             x=np.histogram(self.IAD()[np.isfinite(self.IAD())],bins=histBins,normed=1)[0]
         except:
-            print 'problem'
+            print('problem')
             x=0
         return x
     

@@ -3,7 +3,7 @@ import os
 import scipy.io
 import datetime
 import glob
-import tkFileDialog
+from tkinter import filedialog as tkFileDialog
 import pickle
 
 import functions.plotFunctions_joh as johPlt
@@ -34,14 +34,16 @@ class ExperimentMeta(object):
 
         #If a video file name is passed, collect video parameters
         if path.endswith('.avi') or path.endswith('.mp4'):
-            self.aviPath = path
+            self.aviPath=path
             #get video meta data
-            vp=vf.getVideoProperties(path) #video properties  
-            self.ffmpeginfo = vp
-            self.videoDims = [vp['width'] , vp['height']]
-            self.numFrames=vp['nb_frames']
-            self.fps=vp['fps']
-            #self.date=vp['TAG:date']
+            #vp=vf.getVideoProperties(path) #video properties
+            #self.ffmpeginfo = vp
+            #self.videoDims = [vp['width'] , vp['height']]
+            #self.numFrames=vp['nb_frames']
+            #self.fps=vp['fps']
+            self.videoDims=np.array([2048,1280])
+            self.numFrames=558135
+            self.fps=30
         else:
             self.fps=30
         
@@ -52,7 +54,7 @@ class ExperimentMeta(object):
         
         if pxPmm==[]:
             self.pxPmm=vf.get_pixel_scaling(path,forceCorrectPixelScaling=forceCorrectPixelScaling,forceInput=0)
-#           print 'pxPmm',self.pxPmm       
+#           print('pxPmm',self.pxPmm)       
         else:
             self.pxPmm=pxPmm
         
@@ -104,9 +106,9 @@ class experiment(object):
         self.episodeMarker=episodeMarker
 
         if data==[]:
-            print 'loading data'
+            print('loading data')
             self.rawTra,probTra=self.loadData()
-            print self.rawTra.shape
+            print(self.rawTra.shape)
         else:
             self.rawTra=data
             probTra=[1,1]
@@ -181,7 +183,7 @@ class experiment(object):
             #self.totalPairTravel=sum(self.Pair.totalTravel)
             self.avgSpeed=self.pair.avgSpeed
             self.avgSpeed_smooth=self.pair.avgSpeed_smooth
-            self.idQuality=np.mean(probTra[probTra>=0])*100
+            self.idQuality=100#np.mean(probTra[probTra>=0])*100
             self.thigmoIndex=np.array([np.nanmean(an.ts.positionPol().y()) for an in self.pair.animals])
 
             self.medBoutDur=np.array([np.nanmedian(np.diff(an.ts.boutStart())) for an in self.pair.animals])/float(self.expInfo.fps)

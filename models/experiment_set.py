@@ -4,7 +4,7 @@ Created on Thu Jun 30 10:11:29 2016
 
 @author: jlarsch
 """
-import tkFileDialog
+#import tkFileDialog
 from models.experiment import experiment
 from models.pair import shiftedPairSystematic
 import functions.video_functions as vf
@@ -89,12 +89,12 @@ class experiment_set(object):
                 numPairs=15
             else:
                 numPairs=pairListAll.sum()
-            print 'processing: ', row['aviPath']
+            print('processing: ', row['aviPath'])
             currAvi=row['aviPath']
             currTxt=row['txtPath']
             head, tail = os.path.split(currAvi)
             if (currTxt == []) or (currTxt=='none'):
-                print 'reading: ',currTxt
+                print('reading: ',currTxt)
                 currTxt = os.path.join(head,'trajectories_nogaps.mat')
                 mat=scipy.io.loadmat(currTxt)
                 rawData= mat['trajectories']
@@ -109,17 +109,17 @@ class experiment_set(object):
                     ROIpath=    glob.glob(startDir+'\\ROIdef*') #skype experiments
                     if len(ROIpath)<1:
                         ROIpath=    glob.glob(startDir+'\\bgMed_scale*') #skype experiments
-                        print 'no skype roi found'
+                        print('no skype roi found')
                         if len(ROIpath)<1:
-                            print 'no DishPair roi found'
+                            print('no DishPair roi found')
                             ROIpath=[]
                         else:
-                            print 'DishPair roi found'
+                            print('DishPair roi found')
                             rois=np.loadtxt(ROIpath[0],skiprows=1,delimiter=',')
                             r_px=rois.mean(axis=0)[3]
                         
                     else:
-                        print 'skype roi found'
+                        print('skype roi found')
                         rois=np.loadtxt(ROIpath[0])
                         r_px=rois.mean(axis=0)[-1]
                         
@@ -130,11 +130,11 @@ class experiment_set(object):
                 except:
                     self.pxPmm=[]
                     self.roiPath=[]
-                print 'pxPmm:',self.pxPmm
-                print 'ROIpath:',self.roiPath
+                print('pxPmm:',self.pxPmm)
+                print('ROIpath:',self.roiPath)
                 #read data for current experiment or many-dish-set
                 #begin by reading first line to determine format
-                print 'reading: ',currTxt
+                print('reading: ',currTxt)
                 firstLine=pd.read_csv(currTxt,header=None,nrows=1,sep=':')
                 
                 if firstLine.values[0][0][0]=='(':
@@ -173,7 +173,7 @@ class experiment_set(object):
             except:
                 episodeDur=60
             
-            print episodeDur
+            print(episodeDur)
             try:                
                 currAnimalSet=row['set']
             except:
@@ -190,9 +190,9 @@ class experiment_set(object):
             
             if self.recomputeAnimalSize:
                anSize=self.getAnimalSizeFromVideo(currAvi,rawData,numPairs=numPairs)
-               print 'saving anSize to', AnSizeFileOut
+               print('saving anSize to', AnSizeFileOut)
                np.savetxt(AnSizeFileOut,anSize)
-               print 'Animal Size saved.'
+               print('Animal Size saved.')
             else:
                 if np.equal(~os.path.isfile(AnSizeFileOut),-1):
                     anSize=np.zeros(15)
@@ -204,7 +204,7 @@ class experiment_set(object):
             #cycle through all pairs in this data
             nmp=0
             for p in range(numPairs):
-                print p
+                print(p)
                 currAnimal=p
                 currPartner=np.where(pairListAll[:,p])[0][0]
                 
@@ -227,7 +227,7 @@ class experiment_set(object):
                     currCenterPx=[]
 
                 
-                print 'animalSize:',currSize
+                print('animalSize:',currSize)
                 self.experiments.append(experiment(currAvi, currTxt,
                                                    data=data,
                                                    pxPmm=self.pxPmm,
@@ -246,10 +246,10 @@ class experiment_set(object):
                 
                 if self.episodes==-1:
                     numEpi=int(np.floor(((numFrames/fps)/60) /episodeDur))
-                    print 'new episode number',numEpi
+                    print('new episode number',numEpi)
                 else:
                     numEpi=int(self.episodes)
-                    print 'using episode number',numEpi, episodeDur
+                    print('using episode number',numEpi, episodeDur)
                     
                 if self.birthDay==[]:
                     currBirthDay=np.nan
@@ -319,7 +319,7 @@ class experiment_set(object):
                             currCenterPx=np.array([currCenterPx,currCenterPx])
                         except:
                             
-                            print 'using all data'
+                            print('using all data')
                             data=rawData[rng,:,:]
                             #data=currDf.values.reshape(-1,2,3) #(time,animal,(x,y,ori))
                             currCenterPx=[]
@@ -432,7 +432,7 @@ class experiment_set(object):
         maxFrames=100000
         boxSize=200
         head, tail = os.path.split(currAvi)
-        print 'processing animals size:', currAvi
+        print('processing animals size:', currAvi)
         ROIPath=self.roiPath#glob.glob(head+'\\ROI*.csv')
         
         head, tail = os.path.split(ROIPath)
@@ -469,7 +469,7 @@ class experiment_set(object):
             
             triedFr=[]
             triedD=[]
-            print 'determining 2000 frames to read animal size...'
+            print('determining 2000 frames to read animal size...')
             while haveFrames<numFrames:
                 tryFrame=np.random.randint(1000,maxFrames,1)
                 minDist=np.max(np.abs(np.diff(rawTra[tryFrame,:,:],axis=1)))
@@ -481,7 +481,7 @@ class experiment_set(object):
                     triedFr.append(tryFrame)
                     triedD.append(minDist)
             
-            print 'done. tried',len(triedFr),'frames'
+            print('done. tried',len(triedFr),'frames')
             traAll=np.zeros((numFrames,numPairs,2))
             for i in range(numPairs):
                 currCols=[i*3,i*3+1]
@@ -492,7 +492,7 @@ class experiment_set(object):
 
 
         invert=(not correct)
-        print 'inverting video',invert
+        print('inverting video',invert)
         tmp=vf.getAnimalLength(currAvi,frames,traAll,threshold=5,invert=invert)
 
         anSize=[]

@@ -15,7 +15,7 @@ inToCm=2.54
 def paper():
 
     
-    print 'using plot settings for paper plots'
+    print('using plot settings for paper plots')
     inToCm=2.54
     sns.set()
     sns.set_style("ticks")

@@ -9,10 +9,9 @@ import numpy as np
 import subprocess
 import os
 import cv2
-import tkFileDialog
+#import tkFileDialog
 import functions.gui_circle as gc
 import functions.ImageProcessor as ImageProcessor
-import models.AnimalShapeParameters as asp
 import models.geometry as geometry
 import pickle
 import cv2
@@ -83,7 +82,7 @@ def get_pixel_scaling(aviPath,forceCorrectPixelScaling=0,forceInput=0,bg_file=''
     elif forceInput or (np.equal(~os.path.isfile(scaleFile),-1) and  forceCorrectPixelScaling):
         scaleData=np.array(np.loadtxt(scaleFile, skiprows=1,dtype=float))
     else:
-        print 'no PixelScaling found, using 8 pxPmm'
+        print('no PixelScaling found, using 8 pxPmm')
         return 8
 
     pxPmm=2*scaleData['circle radius']/scaleData['arena size']
@@ -149,7 +148,7 @@ def getAnimalSize(experiment,needFrames=2000,numFrames=40000,boxSize=200,e2=[]):
 
     
     if ~np.equal(~os.path.isfile(sizeFile),-2):
-        print 'determining animalSize from data'
+        print('determining animalSize from data')
         haveFrames=0
         frames=np.zeros(needFrames).astype('int')
         dist=np.zeros(needFrames)
@@ -175,7 +174,7 @@ def getAnimalSize(experiment,needFrames=2000,numFrames=40000,boxSize=200,e2=[]):
             tra[:,1,:]=e2.rawTra[frames,1,:]
             tra[:,0,0]=tra[:,0,0]+512
             #tra[:,:,1]=512-tra[:,:,1]
-            print 'using shifted secondAnimal trajectory'
+            print('using shifted secondAnimal trajectory')
         
         #if (int(experiment.expInfo.videoDims[0])/float(tra.max()))>2:
             
@@ -215,11 +214,11 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0,bg_file='',saveAll
         return bg,bg_file
         
     else:
-        print 'calculating median video'
+        print('calculating median video')
         cap = cv2.VideoCapture(aviPath)
         vp=getVideoProperties(aviPath)
         videoDims = tuple([int(vp['width']) , int(vp['height'])])
-        print videoDims
+        print(videoDims)
         #numFrames=int(vp['nb_frames'])
         numFrames=np.min([40000,int(vp['nb_frames'])])
         img1=cap.read()
@@ -231,7 +230,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0,bg_file='',saveAll
         for i in range(10,numFrames-2,np.round(numFrames/FramesToAvg)): #use FramesToAvg images to calculate median
             cap.set(cv2.CAP_PROP_POS_FRAMES,i)
             image=cap.read()
-            print i
+            print(i)
             gray = cv2.cvtColor(image[1], cv2.COLOR_BGR2GRAY)  
             allMed=np.dstack((allMed,gray))
             
@@ -305,7 +304,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0,bg_file='',saveAll
     #        allMedStretch_bgSub=norm(allMedStretch_bgSub)*255
     #        allMedStretch_bgSub[allMedStretch_bgSub<1]=1
             
-            print type(allMedStretch_bgSub)
+            print(type(allMedStretch_bgSub))
             
             
             if saveFile:
@@ -318,7 +317,7 @@ def getMedVideo(aviPath,FramesToAvg=9,saveFile=1,forceInput=0,bg_file='',saveAll
                 writer = cv2.VideoWriter(av_file, fourcc, 30, (vidMed.shape[0],vidMed.shape[1]))
     
                 for i in range(allMedStretch_bgSub.shape[2]):
-                    print i
+                    print(i)
                     x=(np.squeeze(allMedStretch_bgSub[:,:,i])).astype('uint8')
                     writer.write(x)
     

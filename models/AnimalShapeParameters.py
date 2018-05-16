@@ -41,7 +41,7 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames,generateOutVi
         try:
             gray=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
         except:
-            print 'error converting frame: '+str(i)+', using previous frame' 
+            print('error converting frame: '+str(i)+', using previous frame')
                 
 #        img_frame_original=cv2.cvtColor(img_frame_original, cv2.COLOR_BGR2GRAY)
         tc=trajectories[i,0,:]
@@ -53,7 +53,7 @@ def get_AnimalShapeParameters(path,trajectories,startFrame,nFrames,generateOutVi
     
     
 def storeOutputFFF(fff,theArgs,que): #add a argument to function for assigning a queue
-    print 'MULTIPROCESSING: Launching %s in parallel '%fff.func_name
+    print('MULTIPROCESSING: Launching %s in parallel '%fff.func_name)
     que.put(fff(*theArgs)) #we're putting return value into queue
     
 def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
@@ -74,7 +74,7 @@ def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
     # And now, collect all the outputs:
     asp_f=[queue.get() for queue in queues]
     currentTime=datetime.datetime.now()
-    print currentTime, ': saving data before cleanUp'
+    print(currentTime, ': saving data before cleanUp')
     pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
     save_asp(pickleFile,asp_f)    
     
@@ -85,7 +85,7 @@ def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
     asp=asp_cleanUp(asp)
     
     currentTime=datetime.datetime.now()
-    print currentTime, ': saving data after cleanUp'
+    print(currentTime, ': saving data after cleanUp')
     pickleFile=path[:-4]+'_'+currentTime.strftime('%Y%m%d%H%M%S')+'.pickle'
     save_asp(pickleFile,asp)
     
@@ -95,7 +95,7 @@ def vidSplit(path,trajectories,nframes=0,generateOutVideo=0):
 def save_asp(fn,asp):
     with open(fn, 'w') as f:
         pickle.dump(asp, f)
-    print ['data saved as ',fn]
+    print(['data saved as ',fn])
 
 def asp_cleanUp(asp):
     a=asp[0].fish_orientation_elipse
@@ -198,7 +198,7 @@ class AnimalShapeParameters_f(object):
         #    print i,"         \r",
         if np.mod(i,10000)==0:
             currentTime=datetime.datetime.now()
-            print currentTime,'animal: ',animal, ' frame: ',i
+            print(currentTime,'animal: ',animal, ' frame: ',i)
             sys.stdout.flush()
             
         #process sub region around fish
@@ -227,7 +227,7 @@ class AnimalShapeParameters_f(object):
         try:        
             self.centroidContour=np.add(self.trajectory,np.subtract([centerOfMass_skel.x,centerOfMass_skel.y],[151,149]))
         except:
-            print 'no center of mass for frame: ',i
+            print('no center of mass for frame: ',i)
             
         if not np.isnan(self.fish_orientation_elipse):
         

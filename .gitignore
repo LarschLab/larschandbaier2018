@@ -2,3 +2,5 @@
 .idea/
 fo
 release/
+individualExperimentAnalysis/
+*checkpoint.ipynb

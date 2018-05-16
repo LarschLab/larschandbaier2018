@@ -123,7 +123,7 @@ class gui_circles(object):
                 self.roiSq.append([wh,wh,roi[0]-wh/2,roi[1]-wh/2,self.ArenaDiameter])
                 
         else:
-            print 'all arenas defined:'
+            print('all arenas defined:')
             
             self.roiSq=np.array(list(self.roiSq)).astype('int')
             head, tail = os.path.split(self.out_file)
@@ -131,7 +131,7 @@ class gui_circles(object):
             roi_both=np.hstack((self.roiAll,self.roiSq))
             self.rois=pd.DataFrame(data=roi_both,columns=headers,index=None)
             self.rois.to_csv(self.out_file,sep=',')
-            print self.rois
+            print(self.rois)
             plt.close()
             
             #release the main script
