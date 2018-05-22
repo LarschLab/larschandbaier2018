@@ -3,7 +3,16 @@ import os
 import scipy.io
 import datetime
 import glob
-from tkinter import filedialog as tkFileDialog
+
+try:
+  from tkinter import filedialog as tkFileDialog
+except ImportError as exc:
+  if "No module named tkinter" in str(exc):
+     import tkFileDialog
+  else:
+     raise
+     
+
 import pickle
 
 import functions.plotFunctions_joh as johPlt
