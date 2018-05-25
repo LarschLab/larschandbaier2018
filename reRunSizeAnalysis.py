@@ -27,4 +27,4 @@ for p in matches:
     head, tail = os.path.split(p)
     txt_path=glob.glob(head+'\\Position*.txt')[0]
     print p
-    experiment(p,txt_path)
+    experiment(p, txt_path)

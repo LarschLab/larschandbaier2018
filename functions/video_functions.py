@@ -31,25 +31,26 @@ def getVideoProperties(aviPath):
         #can't use openCV because it reports tbr instead of fps (frames per second)
         cmnd = ['c:/ffmpeg/bin/ffprobe', '-show_format', '-show_streams', '-pretty', '-loglevel', 'quiet', aviPath]
         p = subprocess.Popen(cmnd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err =  p.communicate()
+        out, err = p.communicate()
+        out = str(out)[3:-10]
         decoder_configuration = {}
-        for line in out.splitlines():
+        for line in out.split('\\r\\n'):
             if '=' in line:
-                key, value = line.split('=')
+                key, value = str(line).split('=')
                 decoder_configuration[key] = value
         
         #frame rate needs special treatment. calculate from parsed str argument        
-        nominator,denominator=decoder_configuration['avg_frame_rate'].split('/')
-        decoder_configuration['fps']=int(float(nominator) / float(denominator))
+        nominator, denominator = decoder_configuration['avg_frame_rate'].split('/')
+        decoder_configuration['fps'] = int(float(nominator) / float(denominator))
     
         #save video data for re-use            
-        with open(videoPropsFn, 'w') as f:
+        with open(videoPropsFn, 'wb') as f:
             pickle.dump([decoder_configuration], f)
             
     else:
         
         
-        with open(videoPropsFn, 'r') as f:
+        with open(videoPropsFn, 'rb') as f:
             decoder_configuration=pickle.load(f)[0]
         #print('re-using VideoProps')
                     
@@ -192,9 +193,9 @@ def getAnimalSize(experiment,needFrames=2000,numFrames=40000,boxSize=200,e2=[]):
         ret=np.vstack([anID,anSize]).T     
     else:
 #        print 'loading saved animalSize'
-        tmp=pd.read_csv(sizeFile,dtype=int,delim_whitespace=True,skipinitialspace =True)
+        tmp = pd.read_csv(sizeFile, dtype=int, delim_whitespace=True, skipinitialspace=True)
         
-        ret=np.array(tmp[[0,1]].values)#np.array(np.loadtxt(sizeFile, skiprows=1,dtype=int))
+        ret = np.array(tmp[[0, 1]].values)  # np.array(np.loadtxt(sizeFile, skiprows=1,dtype=int))
         
     return ret
     

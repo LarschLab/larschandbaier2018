@@ -28,91 +28,92 @@ import functions.peakdet as pkd
 
 class AnimalTimeSeriesCollection:
     def __init__(self):
-        self.dummy=0
+        self.animalIndex = None
+        self.mapBins = np.arange(-31, 32)
     
     # Call this function from an animal class to link it with this class
-    def linkAnimal(self,animal):
-        self.animal=animal
-        self.shiftIndex=self.animal.shiftIndex
-        self.ID=animal.ID
+    def linkAnimal(self, animal):
+        self.animal = animal
+        self.ID = animal.ID
+        self.animalIndex = self.animal.pair.animalIDs[self.ID]
         animal.add_TimeSeriesCollection(self)
     
-    # function to shift fundamental time series upon loading to generate mock control data    
-    def timeShift(self,x):
-        return np.roll(x,self.shiftIndex,axis=0)
-    
-#--------------------------
-#fundamental time series
-#--------------------------
-    def trackedHeading(self):
-        x=self.animal.pair.experiment.rawTra[:,self.ID,2]
-        return self.timeShift(x)
-        
+    # function to shift fundamental time series upon loading to generate control data
+    def timeShift(self, x):
+        if self.animal.ID==0:
+        #    print('shifting by: ', self.animal.pair.shift)
+            return np.roll(x, self.animal.pair.shift, axis=0)
+        else:
+            return np.roll(x, 0, axis=0)
+
+# --------------------------
+# fundamental time series
+# --------------------------
+
+
     def rawTra(self):
-        x=self.animal.pair.experiment.rawTra[:,self.ID,:2]
+        a = self.animalIndex
+        rng = self.animal.pair.rng
+        currCols = [a * 3, a * 3 + 1]
+        x = self.animal.pair.experiment.rawTra.iloc[rng[0]:rng[1], currCols]
         return Trajectory(self.timeShift(x))
-    
-    def tailCurvature_mean(self):
-        x=self.animal.pair.experiment.tailCurvature_mean[:,self.ID]
+
+    def trackedHeading(self):
+        a = self.animalIndex
+        rng = self.animal.pair.rng
+        currCols = [a * 3 + 2]
+        x = self.animal.pair.experiment.rawTra.iloc[rng[0]:rng[1], currCols]
         return self.timeShift(x)
         
-    def fish_orientation_elipse(self):
-        x=self.animal.pair.experiment.fish_orientation_elipse[self.ID,:]
-        return self.timeShift(x)
-
-    def centroidContour(self):
-        x=self.animal.pair.experiment.centroidContour[:,:,self.ID]
-        return Trajectory(self.timeShift(x))
+# --------------------------
+# derived time series
+# --------------------------
         
-
-        
-#--------------------------
-#derived time series
-#--------------------------
-        
-    #convert pixels to mm
+    # convert pixels to mm and center on (0,0)
     def position(self):
-        arenaCenterPx=self.animal.pair.experiment.expInfo.arenaCenterPx
-        pxPmm=self.animal.pair.experiment.expInfo.pxPmm
-        x=(self.rawTra().xy-arenaCenterPx) / pxPmm
+        # currCenterPx = self.animal.pair.experiment.expInfo.rois[self.animalIndex, -1] + 2
+        currCenterPx = 0
+        arenaCenterPx = np.array([currCenterPx, currCenterPx])
+        pxPmm = self.animal.pair.experiment.expInfo.pxPmm
+        x = (self.rawTra().xy-arenaCenterPx) / pxPmm
         return Trajectory(x)
         
     def position_smooth(self):
-        x=self.position().xy
-        return Trajectory(mu.smooth(x,window_len=5,window='hamming'))
+        x = self.position().xy
+        return Trajectory(mu.smooth(x, window_len=5, window='hamming'))
         
     def positionPol(self):
-        x=[mu.cart2pol(*self.position().xy.T)]
-        x=np.squeeze(np.array(x).T)
+        x = [mu.cart2pol(*self.position().xy.T)]
+        x = np.squeeze(np.array(x).T)
         return Trajectory(x)
         
     def d_position_Smooth(self):
-        x=np.diff(self.position_smooth().xy,axis=0)
+        x = np.diff(self.position_smooth().xy, axis=0)
         return Trajectory(x)
         
     def d_position(self):
-        x=np.diff(self.position().xy,axis=0)
+        x = np.diff(self.position().xy, axis=0)
         return Trajectory(x)
         
     def dd_position(self):
-        x=np.diff(self.d_position_Smooth().xy,axis=0)
+        x = np.diff(self.d_position_Smooth().xy, axis=0)
         return Trajectory(x)
         
     def travel_smooth(self):
-        x=mu.distance(*self.d_position_Smooth().xy.T)
+        x = mu.distance(*self.d_position_Smooth().xy.T)
         return x
         
     def travel(self):
-        x=mu.distance(*self.d_position().xy.T)
+        x = mu.distance(*self.d_position().xy.T)
         return x
         
     def speed(self):
-        fps=self.animal.pair.experiment.expInfo.fps
-        return self.travel() *fps
+        fps = self.animal.pair.experiment.expInfo.fps
+        return self.travel() * fps
     
     def speed_smooth(self):
-        fps=self.animal.pair.experiment.expInfo.fps
-        return self.travel_smooth() *fps
+        fps = self.animal.pair.experiment.expInfo.fps
+        return self.travel_smooth() * fps
     
     def totalTravel(self):
         return np.nansum(np.abs(self.travel()))
@@ -123,89 +124,94 @@ class AnimalTimeSeriesCollection:
     def heading(self):
         return mu.cart2pol(*self.d_position_Smooth().xy.T)[0] #heading[0] = heading, heading[1] = speed
         #heading: pointing right = 0, pointung up = pi/2  
-        
-    
-        
-        
+
     def d_heading(self):
         return np.diff(self.heading())
         
     #currently, this is the position of the neighbor, relative to focal animal name is misleading...
     def position_relative_to_neighbor(self):
-        x= self.animal.neighbor.ts.position_smooth().xy-self.position_smooth().xy
+        x = self.animal.neighbor.ts.position_smooth().xy - self.position_smooth().xy
         return Trajectory(x)
         
     #rotate self to face up in order to map neighbor position relative to self
     def position_relative_to_neighbor_rot(self):
-        relPosPol=[mu.cart2pol(*self.position_relative_to_neighbor().xy.T)]
-        relPosPolRot=np.squeeze(np.array(relPosPol).T)[:-1,:]
-        #relPosPolRot=relPosPolRot[1:,:]
-        relPosPolRot[:,0]=relPosPolRot[:,0]-self.heading()
-        x=[mu.pol2cart(relPosPolRot[:,0],relPosPolRot[:,1])]
-        x=np.squeeze(np.array(x).T)
+        relPosPol = [mu.cart2pol(*self.position_relative_to_neighbor().xy.T)]
+        relPosPolRot = np.squeeze(np.array(relPosPol).T)[:-1, :]
+        relPosPolRot[:, 0] = relPosPolRot[:, 0]-self.heading()
+        x = [mu.pol2cart(relPosPolRot[:, 0], relPosPolRot[:, 1])]
+        x = np.squeeze(np.array(x).T)
         return Trajectory(x)
     
     #acceleration using rotation corrected data
     #effectively splits acceleration into speeding [0] and turning [1]          
     def dd_pos_pol(self):
-        x=[mu.cart2pol(*self.dd_position().xy.T)]
-        x=np.squeeze(np.array(x)).T
+        x = [mu.cart2pol(*self.dd_position().xy.T)]
+        x = np.squeeze(np.array(x)).T
         return Trajectory(x)
         
     def dd_pos_pol_rot(self):
-        x_rot =self.dd_pos_pol().xy
-        x_rot[:,0]=x_rot[:,0]-self.heading()[:-1]
-        x_rot_cart=[mu.pol2cart(x_rot[:,0],x_rot[:,1])]
-        x_rot_cart=np.squeeze(np.array(x_rot_cart)).T
+        x_rot = self.dd_pos_pol().xy
+        x_rot[:, 0] = x_rot[:, 0]-self.heading()[:-1]
+        x_rot_cart = [mu.pol2cart(x_rot[:, 0], x_rot[:, 1])]
+        x_rot_cart = np.squeeze(np.array(x_rot_cart)).T
         return Trajectory(x_rot_cart)
     
     
     #creates the neighbormat for current animal (where neighbor was)
     #this map seems flipped both horizontally and vertically! vertical is corrected at plotting.    
     def neighborMat(self):
-        mapBins=np.arange(-31,32)
-        neighborMat=np.zeros([62,62])
-
-        neighborMat=np.histogramdd(self.position_relative_to_neighbor_rot().xy,bins=[mapBins,mapBins],normed=True)[0]*neighborMat.shape[0]**2
-        
+        mapBins = self.mapBins
+        neighborMat = np.zeros([62, 62])
+        neighborMat = np.histogramdd(self.position_relative_to_neighbor_rot().xy,
+                                     bins=[mapBins, mapBins],
+                                     normed=True)[0]*neighborMat.shape[0]**2
         return neighborMat
         
 #-------simple bout analysis------
     def boutStart(self):
-        return pkd.detect_peaks(self.speed_smooth(),mph=5,mpd=8)
+        return pkd.detect_peaks(self.speed_smooth(), mph=5, mpd=8)
     
 #------Force matrices-------
 #creates force matrix (how did focal animal accelerate depending on neighbor position)
         
     #speedAndTurn - using total acceleration
     def ForceMat_speedAndTurn(self):
-        mapBins=np.arange(-31,32)
-        ForceMat=sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],self.position_relative_to_neighbor_rot().y()[1:],self.accel(),bins=[mapBins,mapBins])[0]
+        mapBins = self.mapBins
+        ForceMat = sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],
+                                           self.position_relative_to_neighbor_rot().y()[1:],
+                                           self.accel(),
+                                           bins=[mapBins, mapBins])[0]
         return ForceMat
         
     #speed - using only acceleration component aligned with heading
     def ForceMat_speed(self):
-        mapBins=np.arange(-31,32)
-        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],self.position_relative_to_neighbor_rot().y()[1:],self.dd_pos_pol_rot().xy[:,0],bins=[mapBins,mapBins])[0]
+        mapBins = self.mapBins
+        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],
+                                       self.position_relative_to_neighbor_rot().y()[1:],
+                                       self.dd_pos_pol_rot().xy[:, 0],
+                                       bins=[mapBins, mapBins])[0]
     
     #turn - using only acceleration component perpendicular to heading   
     def ForceMat_turn(self):
-        mapBins=np.arange(-31,32)
-        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],self.position_relative_to_neighbor_rot().y()[1:],self.dd_pos_pol_rot().xy[:,1],bins=[mapBins,mapBins])[0]
+        mapBins = self.mapBins
+        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],
+                                       self.position_relative_to_neighbor_rot().y()[1:],
+                                       self.dd_pos_pol_rot().xy[:, 1],
+                                       bins=[mapBins, mapBins])[0]
     
     #percentage of time the neighbor animal was in front vs. behind focal animal
     def FrontnessIndex(self):
-        PosMat=self.neighborMat()
-        front=np.sum(np.sum(PosMat[:31,:],axis=1),axis=0)
-        back =np.sum(np.sum(PosMat[32:,:],axis=1),axis=0)
+        PosMat = self.neighborMat()
+        front = np.sum(np.sum(PosMat[:31, :], axis=1), axis=0)
+        back = np.sum(np.sum(PosMat[32:, :], axis=1), axis=0)
         return (front-back)/(front+back)
     
     #angle connecting self to neighbor animal    
     def rangeVector(self):
-        p1=self.centroidContour().xy
-        p2=self.animal.neighbor.ts.centroidContour().xy
-        angle_centroid_connect=geometry.get_angle_list(p1,p2)
-        x=np.mod(180-angle_centroid_connect,360)
+        p1 = self.centroidContour().xy
+        p2 = self.animal.neighbor.ts.centroidContour().xy
+        angle_centroid_connect = geometry.get_angle_list(p1, p2)
+        x = np.mod(180-angle_centroid_connect, 360)
         return x
     
     #difference between heading and range vector
@@ -218,16 +224,16 @@ class AnimalTimeSeriesCollection:
     #where two dishes are stacked on top of each other.
     def PolhistBins(self):
         #maxOut=self.animal.pair.max_out_venture()
-        maxOut=self.animal.pair.experiment.expInfo.arenaDiameter_mm/2.
-        x=np.linspace(0,maxOut,100)   
+        maxOut = self.animal.pair.experiment.expInfo.arenaDiameter_mm/2.
+        x = np.linspace(0, maxOut, 100)
         return x
         
     def Pol_n(self):
-        histData=self.positionPol().y()
-        histData=histData[~np.isnan(histData)]
-        bins=self.PolhistBins()
-        pph,ppeb=np.histogram(histData,bins=bins,normed=1)
+        histData = self.positionPol().y()
+        histData = histData[~np.isnan(histData)]
+        bins = self.PolhistBins()
+        pph, ppeb = np.histogram(histData, bins=bins, normed=1)
         
-        x=(pph/(np.pi*ppeb[1:]*2))*np.pi*((ppeb[-1])**2)
+        x = (pph/(np.pi*ppeb[1:]*2))*np.pi*((ppeb[-1])**2)
         return x
-        
+

@@ -16,7 +16,7 @@ forceCorrectPixelScaling=0
 episodes=-1
 if batchmode:
     
-    expSet=es.experiment_set(csvFile=[],systShift=systShift,timeStim=timeStim,sizePlot=sizePlot, episodes=episodes)
+    expSet=es.experiment_set(csvFile=[], systShift=systShift, timeStim=timeStim, sizePlot=sizePlot, episodes=episodes)
             
 else:    
     #avi_path = tkFileDialog.askopenfilename(initialdir=os.path.normpath('D:/data/b/2016/20160311_arenaSize/b/1/'))
