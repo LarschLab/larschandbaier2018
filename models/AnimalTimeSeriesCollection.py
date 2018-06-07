@@ -162,7 +162,9 @@ class AnimalTimeSeriesCollection:
     def neighborMat(self):
         mapBins = self.mapBins
         neighborMat = np.zeros([62, 62])
-        neighborMat = np.histogramdd(self.position_relative_to_neighbor_rot().xy,
+        pos = self.position_relative_to_neighbor_rot().xy
+        pos = pos[~np.isnan(pos).any(axis=1), :]
+        neighborMat = np.histogramdd(pos,
                                      bins=[mapBins, mapBins],
                                      normed=True)[0]*neighborMat.shape[0]**2
         return neighborMat
@@ -177,8 +179,9 @@ class AnimalTimeSeriesCollection:
     #speedAndTurn - using total acceleration
     def ForceMat_speedAndTurn(self):
         mapBins = self.mapBins
-        ForceMat = sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],
-                                           self.position_relative_to_neighbor_rot().y()[1:],
+        position_relative_to_neighbor_rot = self.position_relative_to_neighbor_rot()
+        ForceMat = sta.binned_statistic_2d(position_relative_to_neighbor_rot().x()[1:],
+                                           position_relative_to_neighbor_rot().y()[1:],
                                            self.accel(),
                                            bins=[mapBins, mapBins])[0]
         return ForceMat
@@ -186,24 +189,26 @@ class AnimalTimeSeriesCollection:
     #speed - using only acceleration component aligned with heading
     def ForceMat_speed(self):
         mapBins = self.mapBins
-        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],
-                                       self.position_relative_to_neighbor_rot().y()[1:],
+        position_relative_to_neighbor_rot = self.position_relative_to_neighbor_rot()
+        return sta.binned_statistic_2d(position_relative_to_neighbor_rot().x()[1:],
+                                       position_relative_to_neighbor_rot().y()[1:],
                                        self.dd_pos_pol_rot().xy[:, 0],
                                        bins=[mapBins, mapBins])[0]
     
     #turn - using only acceleration component perpendicular to heading   
     def ForceMat_turn(self):
         mapBins = self.mapBins
-        return sta.binned_statistic_2d(self.position_relative_to_neighbor_rot().x()[1:],
-                                       self.position_relative_to_neighbor_rot().y()[1:],
+        position_relative_to_neighbor_rot = self.position_relative_to_neighbor_rot()
+        return sta.binned_statistic_2d(position_relative_to_neighbor_rot().x()[1:],
+                                       position_relative_to_neighbor_rot().y()[1:],
                                        self.dd_pos_pol_rot().xy[:, 1],
                                        bins=[mapBins, mapBins])[0]
     
     #percentage of time the neighbor animal was in front vs. behind focal animal
     def FrontnessIndex(self):
         PosMat = self.neighborMat()
-        front = np.sum(np.sum(PosMat[:31, :], axis=1), axis=0)
-        back = np.sum(np.sum(PosMat[32:, :], axis=1), axis=0)
+        front = np.nansum(np.nansum(PosMat[:31, :], axis=1), axis=0)
+        back = np.nansum(np.nansum(PosMat[32:, :], axis=1), axis=0)
         return (front-back)/(front+back)
     
     #angle connecting self to neighbor animal    

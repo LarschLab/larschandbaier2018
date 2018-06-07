@@ -9,11 +9,12 @@ import copy
 import numpy as np
 from models.geometry import Trajectory
 from models.animal import Animal
+import warnings
 
 class Pair(object):
     # Class defining one pair of animals during one experiment episode
 
-    def __init__(self, shift=0, animalIDs=[0, 1], epiNr=None):
+    def __init__(self, shift=0, animalIDs=[0, 1], rng=[], epiNr=None):
 
         self.epiNr = epiNr          # Episode number to use in this instance
         self.shift = shift          # tags pair for calculation of control shifted data
@@ -21,6 +22,8 @@ class Pair(object):
         self.animals = []           # Place holder for list of animal instances
         self.experiment = None      # Place holder for parent experiment reference
         self.rng = None             # Place holder for range of frames belonging to this pair-episode
+
+        self.rng = rng
 
     def addAnimal(self, animal):
         self.animals.append(animal)
@@ -33,7 +36,6 @@ class Pair(object):
         fps = self.experiment.expInfo.fps
         episodeDur = self.experiment.expInfo.episodeDur  # expected in minutes
         episodeFrames = fps * episodeDur * 60
-        self.rng = np.array([self.epiNr * episodeFrames, (self.epiNr + 1) * episodeFrames]).astype('int')
 
         for i in range(2):
             Animal(i).joinPair(self)
@@ -94,7 +96,14 @@ class Pair(object):
         return x
 
     def ShoalIndex(self):
-        x = (self.spIAD_m() - self.IAD_m()) / self.spIAD_m()
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                spIAD = self.spIAD_m()
+                IAD = self.IAD_m()
+                x = (spIAD - IAD) / spIAD
+            except Warning:
+                x = np.nan
         return x
 
     def avgSpeed(self):

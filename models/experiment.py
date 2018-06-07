@@ -26,13 +26,18 @@ class ExperimentMeta(object):
     # ExperimentMeta class collects file paths, arena and video parameters for one experiment
     def __init__(self, trajectoryPath):
 
-        self.trajectoryPath = trajectoryPath
+        self.trajectoryPathAll = np.array(trajectoryPath.split())
+        self.trajectoryFileNum = self.trajectoryPathAll.shape[0]
+        if self.trajectoryFileNum > 1:
+            self.trajectoryPath = self.trajectoryPathAll[0]
+        else:
+            self.trajectoryPath = trajectoryPath
 
         self.aviPath = None
         self.aspPath = None
-        self.anSizeFile = None
-        self.roiPath = None
-        self.pairListFn = None
+        self.anSizeFile = None  #   path to animal size file
+        self.roiPath = None     #   path to Bonsai_getCircles ROI definition file
+        self.pairListFn = None  #   path to pair list file
 
         self.animalSet = None
         self.inDishTime = None
@@ -43,7 +48,11 @@ class ExperimentMeta(object):
         self.pairListAll = None
         self.nShiftRuns = None
         self.birthDayAll = None
+        self.expTime = None
         self.SaveNeighborhoodMaps = None
+        self.recomputeAnimalSize = None
+        self.ComputeBouts = None
+        self.computeLeadership = None
 
         self.numPairs = None
         self.txtTrajectories = None
@@ -55,7 +64,9 @@ class ExperimentMeta(object):
 
         #Parse arguments from expinfo or use defaults with a notification.
 
-    def fillCompleteMeta(self, expinfo):
+    def fillCompleteMeta(self, expinfo, rawTra):
+
+        #   some basic checks on validity of inputs, defaults for missing inputs.
         try:
             self.episodeDur = float(expinfo['epiDur'])
         except KeyError:
@@ -70,6 +81,10 @@ class ExperimentMeta(object):
             print('No video file specified. Will resort to defaults.', error)
             self.aviPath = None
 
+        except TypeError as error:
+            print('No video file specified. Will resort to defaults.', error)
+            self.aviPath = None
+
         except FileNotFoundError as error:
             print('Specified video file not found.', error)
             self.aviPath = None
@@ -78,6 +93,7 @@ class ExperimentMeta(object):
         try:
             self.pairListFn = expinfo['pairList']
             self.pairListAll = np.loadtxt(self.pairListFn, dtype='int')
+            print('Pairlist found. Size: ', self.pairListAll.shape)
         except FileNotFoundError:
             print('Pair list not found. Using default...')
             self.pairListAll = np.diag((-1, -1)) + 1
@@ -121,7 +137,7 @@ class ExperimentMeta(object):
             # self.fps = 30
         else:  # otherwise, use defaults
             self.videoDims = np.array([2048, 1280])
-            self.numFrames = 558135
+            self.numFrames = rawTra.shape[0]
             self.fps = 30
             print('Attention! Using default video parameters: ', self.videoDims, self.numFrames, self.fps)
 
@@ -173,23 +189,42 @@ class ExperimentMeta(object):
             self.inDishTime = 0
 
         try:
-            self.SaveNeighborhoodMaps = float(expinfo['SaveNeighborhoodMaps'])
+            self.SaveNeighborhoodMaps = expinfo['SaveNeighborhoodMaps']
         except KeyError:
             print('SaveNeighborhoodMaps not specified. Using default: True')
             self.SaveNeighborhoodMaps = True
 
         try:
-            self.birthDayAll = expinfo['birthDayAll'].split()
+            self.recomputeAnimalSize = expinfo['recomputeAnimalSize']
         except KeyError:
-            defBD = '2018-04-14-09-00'
-            self.birthDayAll = np.repeat(defBD,self.numPairs)
-            print('birthDayAll not specified. Using default: ', defBD)
+            print('recomputeAnimalSize not specified. Using default: True')
+            self.recomputeAnimalSize = True
 
-            # concatenate dependent file paths (trajectories, pre-analysis)
-        #head, tail = os.path.split(path)
-        #head = os.path.normpath(head)
+        try:
+            self.ComputeBouts = expinfo['ComputeBouts']
+        except KeyError:
+            print('ComputeBouts not specified. Using default: True')
+            self.ComputeBouts = True
 
-        #self.AnSizeFilePath = os.path.join(head, 'animalSize.txt')
+        try:
+            self.computeLeadership = expinfo['computeLeadership']
+        except KeyError:
+            print('computeLeadership not specified. Using default: True')
+            self.ComputeBouts = True
+
+        try:
+            tmp = np.array(expinfo['birthDayAll'].split())
+            tmp = [datetime.strptime(x, '%Y-%m-%d-%H-%M') for x in tmp]
+            self.birthDayAll = np.array(tmp)
+        except KeyError:
+            print('BirthDays not specified. Cannot determine animal age.')
+            self.birthDayAll = np.repeat(np.nan, self.numPairs)
+
+        try:
+            self.expTime = expinfo['expTime']
+        except KeyError:
+            print('BirthDays not specified. Cannot determine animal age.')
+            self.expTime = np.repeat(np.nan, self.numPairs)
 
 
     def PxPmmFromRois(self):
@@ -226,57 +261,92 @@ class experiment(object):
 
         self.expInfo = None
         self.rawTra = None
-        self.episodeAll = None
-        self.anSize = None
-        self.pair = []
-        self.shiftList = None
+        self.episodeAll = None  # time series of episode name
+        self.anSize = None      # np array of animal size
+        self.pair = []          # place holder for animal-pair-episodes
+        self.shiftList = None   # fix list for 'random' shifts for time shift control data.
 
-        if type(expDef) == str:
-            self.expInfo = ExperimentMeta(expDef)
-            print('loading data', end="\r", flush=True)
-            self.rawTra, self.episodeAll = self.loadData()
+        # imitate overload behavior
+        if type(expDef) == pd.Series:       # typically, run with a pandas df row of arguments
+
+            self.expInfo = ExperimentMeta(expDef['txtPath'])    # initialize meta information
+            print('loading data', end="")
+            self.rawTra, self.episodeAll = self.loadData()      # load raw data
             print(' ...done. Shape: ', self.rawTra.shape)
+            self.expInfo.fillCompleteMeta(expDef,self.rawTra)               # correct and complete meta information
+            if self.expInfo.recomputeAnimalSize:
+                self.anSize = self.getAnimalSize()              # compute animal size if requested
 
-        elif type(expDef) == pd.Series:
-
-            self.expInfo = ExperimentMeta(expDef['txtPath'])
-            self.expInfo.fillCompleteMeta(expDef)
-            print('loading data', end="\r", flush=True)
-            self.rawTra, self.episodeAll = self.loadData()
-            print(' ...done. Shape: ', self.rawTra.shape)
-            self.anSize = self.getAnimalSize()
             # self.load_animalShapeParameters()
+            # generate one random shift list, specifying shift for each of the control runs for shifted IAD
             self.shiftList = [int(random.uniform(self.expInfo.minShift,
                                                  self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
                               for x in range(self.expInfo.nShiftRuns)]
-            self.splitToPairs()
-            self.saveExpData()
+            self.splitToPairs()                                 # Split raw data table into animal-pair-episodes
+            self.saveExpData()                                  # compute and collect pair statistics
+
+        elif type(expDef) == str:           # can run with just an avi file as minimal input.
+
+            self.expInfo = ExperimentMeta(expDef)
+            print('loading data', end="")
+            self.rawTra, self.episodeAll = self.loadData()
+            print(' ...done. Shape: ', self.rawTra.shape)
 
         else:
             print('Wrong experiment definition argument. Provide TxtPath or pd.Series')
+            raise FileNotFoundError
 
     def splitToPairs(self):
+        # Split raw data table into animal-pair-episodes
+        # generating one 'pair' instance for each episode and each animal
+        # look up pair members from PairList matrix
 
-        for p in range(self.expInfo.numPairs):
-            for i in range(self.expInfo.episodes):
+        numPairs = self.expInfo.numPairs
+        episodes = self.expInfo.episodes
+        print('Splitting data into ', str(numPairs*episodes), ' animal-pair-episodes:')
 
-                fps = self.expInfo.fps
-                episodeDur = self.expInfo.episodeDur  # expected in minutes
-                episodeFrames = fps * episodeDur * 60
-                rng = np.array([i * episodeFrames, (i + 1) * episodeFrames]).astype('int')
-                epCurr = self.episodeAll.loc[rng[0]]
+        offset = 0
+        skip = 0
 
-                if self.expInfo.episodePLcode:
-                    pairListNr = int(epCurr[:2])
-                    pairList = self.expInfo.pairListAll[pairListNr * 16:(pairListNr + 1) * 16]
-                else:
-                    pairList = self.expInfo.pairListAll
+        fps = self.expInfo.fps
+        episodeDur = self.expInfo.episodeDur  # expected in minutes
+        episodeFrames = fps * episodeDur * 60
+
+        for i in range(episodes):
+
+            if (i + skip) > episodes:
+                break
+
+            rng = np.array([offset + (i * episodeFrames), offset + ((i + 1) * episodeFrames)]).astype('int')
+
+            blockEpisodes = self.episodeAll[rng[0]:rng[1]]
+
+            if np.unique(blockEpisodes).shape[0] > 1:
+                offset = offset + np.where(np.abs(np.diff(blockEpisodes)) > 0)[0][0]+1
+                print('episode transition detected at episode: ', i, '. applying offset: ', offset)
+                rng = np.array([offset + (i * episodeFrames), offset + ((i + 1) * episodeFrames)]).astype('int')
+                skip += 1
+
+            blockEpisodes = self.episodeAll[rng[0]:rng[1]]
+            if np.unique(blockEpisodes).shape[0] > 1:
+                print('still wrong offset')
+                raise ValueError
+
+            epCurr = self.episodeAll[rng[0]+10]
+
+            if self.expInfo.episodePLcode:
+                pairListNr = int(epCurr)
+                pairList = self.expInfo.pairListAll[pairListNr * 16:(pairListNr + 1) * 16, :]
+            else:
+                pairList = self.expInfo.pairListAll
+
+            for p in range(numPairs):
 
                 currPartnerAll = np.where(pairList[:, p])[0]
 
                 for mp in range(currPartnerAll.shape[0]):
                     currPartner = currPartnerAll[mp]
-                    Pair(shift=0, animalIDs=[p, currPartner], epiNr=i).linkExperiment(self)
+                    Pair(shift=0, animalIDs=[p, currPartner], epiNr=i, rng=rng).linkExperiment(self)
 
     def saveExpData(self):
 
@@ -284,38 +354,66 @@ class experiment(object):
         # produce pandas df where each row is one episode
         # ordering is same as self.pair list
 
-        animalSet = self.expInfo.animalSet
         episodeStartFrame = np.array([x.rng[0] for x in self.pair])
+        animalSet = np.repeat(self.expInfo.animalSet,episodeStartFrame.shape[0])
         inDishTime = (episodeStartFrame / (30 * 60)) + self.expInfo.inDishTime
         AnimalIndex = np.array([x.animalIDs[0] for x in self.pair])
         cp = np.array([x.animalIDs[1] for x in self.pair])  # current partner
         episodeName = self.episodeAll[episodeStartFrame]
         epiNr = np.array([x.epiNr for x in self.pair])
         bd = self.expInfo.birthDayAll[AnimalIndex]
-        anSize = self.anSize[AnimalIndex]
+        if self.anSize:
+            anSize = self.anSize[AnimalIndex]
+        else:
+            anSize = 0
 
-        si = np.array([x.ShoalIndex() for x in self.pair])
+        print('Computing pair statistics:')
+        si = self.computeSocialIndex()
+
+        print('Average speed... ', end='')
         avgSpeed = np.array([x.avgSpeed()[0] for x in self.pair])
         avgSpeed_smooth = np.array([x.avgSpeed_smooth()[0] for x in self.pair])
+        print('Thigmotaxis index... ', end='')
         thigmoIndex = np.array([x.thigmoIndex()[0] for x in self.pair])
-        boutDur = np.array([x.medBoutDur()[0] for x in self.pair])
-        leadershipIndex = np.array([x.LeadershipIndex()[0] for x in self.pair])
+
+        if self.expInfo.computeLeadership:
+            print('Leadership index... ', end='')
+            leadershipIndex = np.array([x.LeadershipIndex()[0] for x in self.pair])
+        else:
+            leadershipIndex = 0
 
 
-        head, tail = os.path.split(self.expInfo.aviPath)
+        if self.expInfo.ComputeBouts == 1:
+            print('Bout duration... ', end='')
+            boutDur = np.array([x.medBoutDur()[0] for x in self.pair])
+        else:
+            boutDur = 0
+
+
+        print(' done.')
+
+
+        expStart = datetime.strptime(self.expInfo.expTime, '%Y-%m-%d %H:%M:%S')
+        tRun = np.array([expStart + timedelta(minutes=x) for x in inDishTime])
 
         try:
-            datetime_object = datetime.strptime(tail[-18:-4], '%Y%m%d%H%M%S')
-            tRun = np.array([datetime_object + timedelta(minutes=x) for x in inDishTime])
-        except:
-            print('avi file name does not provide valid experiment dateTime. Using default inDishTime')
-            tRun = np.array(inDishTime)
-
-        try:
-            ageAll = np.array([(datetime_object - x).days for x in bd])
+            ageAll = np.array([(expStart - x).days for x in bd])
         except:
             print('Could not compute animal age at experiment date. Using default: 0')
             ageAll = np.zeros(avgSpeed.shape)
+            raise
+
+        #print(animalSet.shape,
+        #      AnimalIndex.shape,
+        #      cp.shape,
+        #      si.shape,
+        #      episodeName.squeeze().shape,
+        #      episodeStartFrame.shape,
+        #      inDishTime.shape,
+        #      epiNr.shape,
+        #      tRun.shape,
+        #      bd.shape,
+        #      ageAll.shape)
 
         df = pd.DataFrame(
             {'animalSet': animalSet,
@@ -343,7 +441,8 @@ class experiment(object):
         if self.expInfo.SaveNeighborhoodMaps:
             numepiAll = self.expInfo.episodes * self.expInfo.numPairs
             nmAll = np.zeros((numepiAll, 3, 2, 62, 62))  # animal,[neighbor,speed,turn],[data,shuffle0],[mapDims]
-            print('Computing neighborhood maps... ', end="\r", flush=True)
+            #print('Computing neighborhood maps... ', end="\r", flush=True)
+            print('Computing neighborhood maps... ', end="")
             for i in range(numepiAll):
                 nmAll[i, 0, 0, :, :] = self.pair[i].animals[0].ts.neighborMat()
                 nmAll[i, 1, 0, :, :] = self.pair[i].animals[0].ts.ForceMat_speed()
@@ -353,15 +452,34 @@ class experiment(object):
                 nmAll[i, 1, 1, :, :] = self.pair[i].animals[0].ts.ForceMat_speed()
                 nmAll[i, 2, 1, :, :] = self.pair[i].animals[0].ts.ForceMat_turn()
                 self.pair[i].shift = 0
-            print(' done. Saving maps...', end="\r", flush=True)
+            #print(' done. Saving maps...', end="\r", flush=True)
+            print(' done. Saving maps...', end="")
             npyFileOut = self.expInfo.trajectoryPath[:-4] + 'MapData.npy'
             np.save(npyFileOut, nmAll)
-            print(' done.')
+
+    def computeSocialIndex(self):
+
+        si = []
+        i = 0
+        numPairs = self.expInfo.numPairs
+        episodes = self.expInfo.episodes
+        print('Computing Shoaling index: ', end='\r')
+        for x in self.pair:
+            if np.mod(i, 100) == 0:
+                print('Computing Shoaling index: ',
+                      str(int(100 * (i / (float(numPairs * episodes))))),
+                      ' %', end='\r', flush=True)
+            si.append(x.ShoalIndex())
+            i += 1
+        print('Computing Shoaling index: ... done.', end='')
+        return np.array(si)
 
     def loadData(self):
         # read data for current experiment or many-dish-set
         # begin by reading first line to determine format
-        print(' ', self.expInfo.trajectoryPath, end="\r", flush=True)
+        #print(' ', self.expInfo.trajectoryPath, end="\r", flush=True)
+        print(' ', self.expInfo.trajectoryPath, end="")
+        VRformat = False
         firstLine = pd.read_csv(self.expInfo.trajectoryPath,
                                 header=None,
                                 nrows=1,
@@ -390,12 +508,62 @@ class experiment(object):
             episodeAll = pd.DataFrame(np.zeros(rawData.shape[0]))
 
         else:  # default for all bonsai VR experiments since mid 2017
+            VRformat = True
             rawData = pd.read_csv(self.expInfo.trajectoryPath,
                                   header=None,
                                   delim_whitespace=True)
-            episodeAll = rawData[rawData.columns[-1]]
 
+        if (self.expInfo.trajectoryFileNum > 1) and VRformat:
+            print('More than one trajectory file, loading all:', end='\r')
+            fnCombinedData = self.expInfo.trajectoryPathAll[-1][:-7]+'all'+'.h5'
+            if np.equal(~os.path.isfile(fnCombinedData), -1):
+                self.batchToHdf(fnCombinedData)
+
+            print(' Reading combined data.')
+            hdf = pd.HDFStore(fnCombinedData)
+            rawData = hdf['rawData']
+            rawData = rawData.reset_index().drop('index', axis=1)
+            # pd.read_csv(fnCombinedData, header=None, delim_whitespace=True)
+            hdf.close()
+        episodeAll = np.array(rawData.loc[:, rawData.columns[-1]]).astype('int')
         return rawData, episodeAll
+
+    def batchToHdf(self, fnCombinedData):
+        # create (or open) an hdf5 file and opens in append mode
+        hdf = pd.HDFStore(fnCombinedData)
+        gl = pd.read_csv(self.expInfo.trajectoryPathAll[0],
+                         header=None,
+                         delim_whitespace=True,
+                         skiprows=1000,
+                         nrows=1)
+        gl_int = gl.select_dtypes(include=['int64'])
+        converted_int = gl_int.apply(pd.to_numeric, downcast='signed')
+        gl[converted_int.columns] = converted_int
+
+        gl_float = gl.select_dtypes(include=['float64'])
+        converted_float = gl_float.apply(pd.to_numeric, downcast='float')
+        gl[converted_float.columns] = converted_float
+
+        try:
+            i = 0
+            for f in self.expInfo.trajectoryPathAll:
+                #print(i, ' out of ', self.expInfo.trajectoryFileNum, end='\r', flush=True)
+                print(f)
+                tmp = pd.read_csv(f, header=None, delim_whitespace=True)
+                tmp.fillna(-1, inplace=True)
+                tmp = tmp.astype(gl.dtypes)
+                tmp.iloc[:, -1] = np.array([x[:2] for x in tmp.iloc[:, -1]]).astype('int8')
+                hdf.append('rawData', tmp)
+                i += 1
+            print(' done. Saving combined Data')
+            hdf.close()  # closes the file
+            # (csvFileOut, encoding='utf-8')
+            # rawData.to_csv(fnCombinedData,index=False,header=False,float_format='%.3f')
+        except:
+            hdf.close()
+            print('problems')
+            raise
+        return 1
 
     def getAnimalSize(self):
 
