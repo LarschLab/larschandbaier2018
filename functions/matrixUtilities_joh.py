@@ -5,6 +5,7 @@ Created on Thu Sep 24 20:52:49 2015
 @author: johannes
 """
 import numpy as np
+import os
 
 def cart2pol(x, y):
     theta = np.arctan2(y, x)
@@ -21,7 +22,22 @@ def runningMean(x, N):
 
 def distance(x,y):
     return np.sqrt(x**2 + y**2)
-    
+
+def splitall(path):
+    allparts = []
+    while 1:
+        parts = os.path.split(path)
+        if parts[0] == path:  # sentinel for absolute paths
+            allparts.insert(0, parts[0])
+            break
+        elif parts[1] == path: # sentinel for relative paths
+            allparts.insert(0, parts[1])
+            break
+        else:
+            path = parts[0]
+            allparts.insert(0, parts[1])
+    return allparts
+
 def equalizePath(x,y,precision=2):
     
 

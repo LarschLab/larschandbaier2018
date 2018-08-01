@@ -83,11 +83,18 @@ class Pair(object):
         return x
 
     def spIAD_meanTrace(self):
-        x = np.nanmean(self.IADs(), axis=0)
+        a= self.IADs()
+        #print(a.shape)
+        if a.dtype == np.object_:
+            print('this is not a float!!!!!')
+            print(a)
+        x = np.nanmean(a, axis=0)
         return x
 
     def spIAD_m(self):
-        x = np.nanmean(self.spIAD_meanTrace())
+        a=self.spIAD_meanTrace()
+
+        x = np.nanmean(a)
         return x
 
     def IAD_m(self):
@@ -106,6 +113,8 @@ class Pair(object):
                 IAD = self.IAD_m()
                 x = (spIAD - IAD) / spIAD
             except Warning:
+                print('shoalIndex error')
+                #raise
                 x = np.nan
         return x
 
