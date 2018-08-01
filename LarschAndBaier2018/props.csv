@@ -1,0 +1,5 @@
+BaseDir			E:\b\LarschAndBaier2018\
+ProcessingDir	processing
+outputDir		output
+RawDataDir		RawData
+allExpFn		E:\b\LarschAndBaier2018\rawData\AllExp.csv
