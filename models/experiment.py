@@ -273,15 +273,21 @@ class experiment(object):
             print('loading data', end="")
             self.rawTra, self.episodeAll = self.loadData()      # load raw data
             print(' ...done. Shape: ', self.rawTra.shape)
+            #print(self.rawTra[1000:1004])
             self.expInfo.fillCompleteMeta(expDef,self.rawTra)               # correct and complete meta information
             if self.expInfo.recomputeAnimalSize:
                 self.anSize = self.getAnimalSize()              # compute animal size if requested
 
             # self.load_animalShapeParameters()
             # generate one random shift list, specifying shift for each of the control runs for shifted IAD
-            self.shiftList = [int(random.uniform(self.expInfo.minShift,
-                                                 self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
-                              for x in range(self.expInfo.nShiftRuns)]
+            shiftA=[int(random.uniform(self.expInfo.minShift,
+                                       self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
+                    for x in range(self.expInfo.nShiftRuns)]
+            shiftB=[int(random.uniform(self.expInfo.minShift,
+                                       self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
+                    for x in range(self.expInfo.nShiftRuns)]
+
+            self.shiftList = np.array([shiftA, shiftB])
             self.splitToPairs()                                 # Split raw data table into animal-pair-episodes
             self.saveExpData()                                  # compute and collect pair statistics
 

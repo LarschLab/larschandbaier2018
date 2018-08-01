@@ -40,11 +40,12 @@ class AnimalTimeSeriesCollection:
     
     # function to shift fundamental time series upon loading to generate control data
     def timeShift(self, x):
-        if self.animal.ID==0:
+        return np.roll(x, self.animal.pair.shift[self.animal.ID], axis=0)
+        #if self.animal.ID==0:
         #    print('shifting by: ', self.animal.pair.shift)
-            return np.roll(x, self.animal.pair.shift, axis=0)
-        else:
-            return np.roll(x, 0, axis=0)
+        #    return np.roll(x, self.animal.pair.shift, axis=0)
+        #else:
+        #    return np.roll(x, 0, axis=0)
 
 # --------------------------
 # fundamental time series

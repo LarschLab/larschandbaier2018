@@ -14,7 +14,7 @@ import warnings
 class Pair(object):
     # Class defining one pair of animals during one experiment episode
 
-    def __init__(self, shift=0, animalIDs=[0, 1], rng=[], epiNr=None):
+    def __init__(self, shift=[0,0], animalIDs=[0, 1], rng=[], epiNr=None):
 
         self.epiNr = epiNr          # Episode number to use in this instance
         self.shift = shift          # tags pair for calculation of control shifted data
@@ -57,22 +57,25 @@ class Pair(object):
         return x
 
     def IAD(self):
-        self.shift = 0
+        self.shift = [0,0]
         dist = Trajectory()
         dist.xy = self.animals[0].ts.position().xy-self.animals[1].ts.position().xy
         x = np.sqrt(dist.x()**2 + dist.y()**2)
-        self.shift = 0
+        self.shift = [0,0]
         return x
 
     def IADs(self):
         x = []
         for i in range(self.experiment.expInfo.nShiftRuns):
-            self.shift = self.experiment.shiftList[i]
+            self.shift = self.experiment.shiftList[:, i]
+            #print('shift:',self.shift)
             dist = Trajectory()
             dist.xy = self.animals[0].ts.position().xy-self.animals[1].ts.position().xy
-            x.append(np.sqrt(dist.x()**2 + dist.y()**2))
-            self.shift = 0
-        return x
+            sq = dist.x()**2 + dist.y()**2
+            x.append(np.sqrt(sq))
+            #print(np.where(~np.isfinite(sq))[0])
+            self.shift = [0,0]
+        return np.array(x).astype('float')
 
     def IADhist(self):
         histBins = np.arange(100)
