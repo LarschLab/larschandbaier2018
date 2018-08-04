@@ -159,10 +159,10 @@ class ExperimentMeta(object):
             print('Attention! Using default video parameters: ', self.videoDims, self.numFrames, self.fps)
 
         try:
-            self.minShift = expinfo['minShift']
+            self.minShift = expinfo['minShift'] * self.fps
         except KeyError:
             print('minShift not specified. Using 60 seconds (default).')
-            self.minShift = 60 + self.fps
+            self.minShift = 60 * self.fps
 
         try:
             self.nShiftRuns = expinfo['nShiftRuns']
@@ -340,12 +340,15 @@ class experiment(object):
 
             # self.load_animalShapeParameters()
             # generate one random shift list, specifying shift for each of the control runs for shifted IAD
-            shiftA=[int(random.uniform(self.expInfo.minShift,
-                                       self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
-                    for x in range(self.expInfo.nShiftRuns)]
-            shiftB=[int(random.uniform(self.expInfo.minShift,
-                                       self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
-                    for x in range(self.expInfo.nShiftRuns)]
+            #shiftA=np.array([int(random.uniform(self.expInfo.minShift,
+            #                           self.expInfo.episodeDur*self.expInfo.fps*60 - self.expInfo.minShift))
+            #        for x in range(self.expInfo.nShiftRuns)])
+            #shiftB=shiftA+self.expInfo.minShift
+
+            shiftMid=int(0.5*self.expInfo.episodeDur*self.expInfo.fps*60)
+            shiftA= np.linspace(self.expInfo.minShift,shiftMid,self.expInfo.nShiftRuns).astype('int')
+            shiftB = np.linspace(shiftMid+self.expInfo.minShift,2*shiftMid-self.expInfo.minShift,self.expInfo.nShiftRuns).astype('int')[::-1]
+
 
             self.shiftList = np.array([shiftA, shiftB])
             self.splitToPairs()                                 # Split raw data table into animal-pair-episodes
