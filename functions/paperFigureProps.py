@@ -32,6 +32,6 @@ def paper():
     pylab.rcParams['lines.linewidth'] = 1.0
     pylab.rcParams['lines.markersize'] = 10
     pylab.rcParams['legend.fontsize'] = 8
-    pylab.rcParams['figure.dpi'] = 100
-    pylab.rcParams['savefig.dpi'] = 100
+    pylab.rcParams['figure.dpi'] = 150
+    pylab.rcParams['savefig.dpi'] = 150
     pylab.rcParams['figure.figsize'] = (18/inToCm, 6/inToCm)
