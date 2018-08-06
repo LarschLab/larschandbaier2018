@@ -113,7 +113,7 @@ class Pair(object):
                 IAD = self.IAD_m()
                 x = (spIAD - IAD) / spIAD
             except Warning:
-                print('shoalIndex error')
+                print('shoalIndex warning: NaN found. Will not compute Attraction in this episode.')
                 #raise
                 x = np.nan
         return x
