@@ -37,6 +37,8 @@ Analysis was tested on several Windows 7 64bit and Windows 10 64bit PCs with 16 
 	
 	4) Install Miniconda 64bit Python 3.6
 		https://conda.io/miniconda.html
+		This code was tested on Miniconda3-4.5.4-Windows-x86_64 
+		https://repo.continuum.io/miniconda/
 	
 	5) Install the analysis python environment.yml, located in the local repository:
 		in the anaconda prompt, type: conda env create --file=environment.yml
