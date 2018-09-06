@@ -26,6 +26,7 @@ Analysis was tested on several Windows 7 64bit and Windows 10 64bit PCs with 16 
 ## Quick start:
 
 	1) Download the RawData.7z (~1.5 GB) and extract into an empty parent folder
+	    https://doi.org/10.6084/m9.figshare.6939923
 	
 	2) Clone this bitbucket repository containing python code and jupyter notebooks:
 		https://bitbucket.org/mpinbaierlab/larschandbaier2018
