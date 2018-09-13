@@ -4,7 +4,9 @@ Code repository accompanying Larsch & Baier 2018, Biological motion as an innate
 
 Python code for data analysis from raw data to final figures (Jupyter notebooks & python modules).
 
-Bonsai workflows for virtual shoaling setup.
+Bonsai workflows for virtual shoaling setup. (Bonsai 2.3.1)
+
+NetLogo model. (6.0.2)
 
 The Raw data is available from figshare: https://doi.org/10.6084/m9.figshare.6939923
 
