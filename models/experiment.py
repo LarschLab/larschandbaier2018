@@ -526,7 +526,7 @@ class experiment(object):
                 nmAll[i, 0, 1, :, :] = self.pair[i].animals[0].ts.neighborMat()
                 nmAll[i, 1, 1, :, :] = self.pair[i].animals[0].ts.ForceMat_speed()
                 nmAll[i, 2, 1, :, :] = self.pair[i].animals[0].ts.ForceMat_turn()
-                self.pair[i].shift = 0
+                self.pair[i].shift = [0,0]
             #print(' done. Saving maps...', end="\r", flush=True)
             print(' done. Saving maps...', end="")
             npyFileOut = os.path.join(self.expInfo.processingDir, txtFn[:-4] + 'MapData.npy')
