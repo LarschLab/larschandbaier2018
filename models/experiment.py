@@ -651,7 +651,10 @@ class experiment(object):
             anSize = getAnimalSizeFromVideo(currAvi=self.expInfo.aviPath,
                                             rawData=self.rawTra,
                                             numPairs=self.expInfo.numPairs,
-                                            roiPath=self.expInfo.roiPath)
+                                            roiPath=self.expInfo.roiPath)/self.expInfo.pxPmm
+
+            head, tail = os.path.split(self.expInfo.trajectoryPath)
+            self.expInfo.anSizeFile = head+tail[:-4]+'_anSize.csv'
 
             print('saving anSize to', self.expInfo.anSizeFile)
             np.savetxt(self.expInfo.anSizeFile, anSize)

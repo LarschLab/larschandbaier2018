@@ -88,4 +88,4 @@ def getAnimalSizeFromVideo(currAvi,rawData,sizePercentile=40,numPairs=15, roiPat
     with open(fnSizeAll,'wb') as f:
         np.savetxt(f,np.array(MA),fmt='%.5f')
         
-    return np.array(anSize)/self.pxPmm
+    return np.array(anSize)
